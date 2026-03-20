@@ -1,0 +1,44 @@
+[
+  {
+    "model": "masters.role",
+    "pk": "11111111-1111-1111-1111-111111111111",
+    "fields": {
+      "created_at": "2026-03-20T00:00:00Z",
+      "updated_at": "2026-03-20T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "SUPER_ADMIN",
+      "name": "Super Admin",
+      "description": "Full platform administrative access.",
+      "is_active": true
+    }
+  },
+  {
+    "model": "masters.role",
+    "pk": "22222222-2222-2222-2222-222222222222",
+    "fields": {
+      "created_at": "2026-03-20T00:00:00Z",
+      "updated_at": "2026-03-20T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "ADMIN",
+      "name": "Admin",
+      "description": "Tenant-level administrator role.",
+      "is_active": true
+    }
+  },
+  {
+    "model": "masters.role",
+    "pk": "33333333-3333-3333-3333-333333333333",
+    "fields": {
+      "created_at": "2026-03-20T00:00:00Z",
+      "updated_at": "2026-03-20T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "MANAGER",
+      "name": "Manager",
+      "description": "Operational manager role.",
+      "is_active": true
+    }
+  }
+]

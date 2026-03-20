@@ -1,0 +1,9 @@
+django
+djangorestframework
+djangorestframework-simplejwt
+psycopg2-binary
+django-environ
+python-dotenv
+cryptography
+django-auditlog
+Pillow

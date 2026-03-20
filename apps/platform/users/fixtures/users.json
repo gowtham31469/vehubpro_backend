@@ -1,0 +1,23 @@
+[
+  {
+    "model": "users.user",
+    "pk": "00000000-0000-0000-0000-000000000001",
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$3ehNwS9MRRip12TjJsBjyQ$v0rbXiWFXgUoMeaQ9VH2Q70ThC5nmKZh2B1xEtWurdA=",
+      "last_login": null,
+      "is_superuser": true,
+      "created_at": "2026-03-20T00:00:00Z",
+      "updated_at": "2026-03-20T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "status": "active",
+      "role": "11111111-1111-1111-1111-111111111111",
+      "tenant": null,
+      "is_first_time_user": false,
+      "is_staff": false,
+      "is_active": true,
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]
