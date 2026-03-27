@@ -25,9 +25,24 @@ class Tenant(BaseModel, SoftArchiveModel):
 
 class TenantBranding(BaseModel):
     tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name="branding")
-    logo = models.ImageField(upload_to="tenant_logos/", null=True, blank=True)
-    dark_logo = models.ImageField(upload_to="tenant_logos/dark/", null=True, blank=True)
-    favicon = models.ImageField(upload_to="tenant_favicons/", null=True, blank=True)
+    logo = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative path under MEDIA (LOCAL) or S3 object key.",
+    )
+    dark_logo = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative path under MEDIA (LOCAL) or S3 object key.",
+    )
+    favicon = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative path under MEDIA (LOCAL) or S3 object key.",
+    )
     primary_color = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:

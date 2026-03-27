@@ -1,0 +1,939 @@
+{
+  "info": {
+    "name": "VeHubPro Billing & Tenants APIs",
+    "_postman_id": "8a2b1e90-4e52-4a0d-9f73-4f9b4a2cba10",
+    "description": "Postman collection for Billing and Tenants app APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Billing - Plans",
+      "item": [
+        {
+          "name": "List Plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/plans/"
+          }
+        },
+        {
+          "name": "Create Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PRO\",\n  \"name\": \"Pro Plan\",\n  \"description\": \"Professional plan\",\n  \"price\": \"1999.00\",\n  \"billing_cycle\": \"monthly\",\n  \"is_custom\": false,\n  \"is_active\": true,\n  \"max_users\": 100,\n  \"max_vehicles\": 200\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/plans/"
+          }
+        },
+        {
+          "name": "Get Plan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/plans/{{plan_id}}/"
+          }
+        },
+        {
+          "name": "Update Plan (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PRO\",\n  \"name\": \"Pro Plan Updated\",\n  \"description\": \"Updated description\",\n  \"price\": \"2499.00\",\n  \"billing_cycle\": \"monthly\",\n  \"is_custom\": false,\n  \"is_active\": true,\n  \"max_users\": 150,\n  \"max_vehicles\": 250,\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/plans/{{plan_id}}/"
+          }
+        },
+        {
+          "name": "Patch Plan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": \"2199.00\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/plans/{{plan_id}}/"
+          }
+        },
+        {
+          "name": "Delete Plan",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/plans/{{plan_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing - Subscriptions",
+      "item": [
+        {
+          "name": "List Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/"
+          }
+        },
+        {
+          "name": "Create Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"plan\": \"{{plan_id}}\",\n  \"start_date\": \"2026-03-20\",\n  \"end_date\": null,\n  \"billing_cycle\": \"monthly\",\n  \"price\": \"1999.00\",\n  \"max_users\": 100,\n  \"max_vehicles\": 200,\n  \"status\": \"active\",\n  \"ledger_entry\": \"{{ledger_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/"
+          }
+        },
+        {
+          "name": "Get Subscription",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/{{subscription_id}}/"
+          }
+        },
+        {
+          "name": "Update Subscription (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"plan\": \"{{plan_id}}\",\n  \"start_date\": \"2026-03-20\",\n  \"end_date\": null,\n  \"billing_cycle\": \"monthly\",\n  \"price\": \"2499.00\",\n  \"max_users\": 120,\n  \"max_vehicles\": 240,\n  \"status\": \"active\",\n  \"ledger_entry\": \"{{ledger_id}}\",\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/{{subscription_id}}/"
+          }
+        },
+        {
+          "name": "Patch Subscription",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/{{subscription_id}}/"
+          }
+        },
+        {
+          "name": "Delete Subscription",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/{{subscription_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing - Ledger & History",
+      "item": [
+        {
+          "name": "List Ledger",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/ledger/"
+          }
+        },
+        {
+          "name": "Create Ledger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"event_type\": \"CONTRACT_STARTED\",\n  \"payload\": {\"note\": \"Initial contract\"},\n  \"effective_at\": \"2026-03-20T00:00:00Z\",\n  \"created_by\": \"{{user_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/ledger/"
+          }
+        },
+        {
+          "name": "Get Ledger Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/ledger/{{ledger_id}}/"
+          }
+        },
+        {
+          "name": "List Subscription History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/history/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing - Addons",
+      "item": [
+        {
+          "name": "List Addons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/"
+          }
+        },
+        {
+          "name": "List Addons by Tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/?tenant_id={{tenant_id}}"
+          }
+        },
+        {
+          "name": "Create Addon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subscription\": \"{{subscription_id}}\",\n  \"ledger_entry\": \"{{ledger_id}}\",\n  \"type\": \"USERS\",\n  \"users_quantity\": 10,\n  \"vehicles_quantity\": 0,\n  \"unit_price\": \"199.00\",\n  \"start_date\": \"2026-03-20\",\n  \"end_date\": null,\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/"
+          }
+        },
+        {
+          "name": "Get Addon",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/{{addon_id}}/"
+          }
+        },
+        {
+          "name": "Update Addon (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subscription\": \"{{subscription_id}}\",\n  \"ledger_entry\": \"{{ledger_id}}\",\n  \"type\": \"USERS\",\n  \"users_quantity\": 15,\n  \"vehicles_quantity\": 0,\n  \"unit_price\": \"299.00\",\n  \"start_date\": \"2026-03-20\",\n  \"end_date\": null,\n  \"is_active\": true,\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/{{addon_id}}/"
+          }
+        },
+        {
+          "name": "Patch Addon",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/{{addon_id}}/"
+          }
+        },
+        {
+          "name": "Delete Addon",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscriptions/addons/{{addon_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/"
+          }
+        },
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tenant One\",\n  \"domain\": \"tenant-one.example.com\",\n  \"status\": \"active\",\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/"
+          }
+        },
+        {
+          "name": "Get Tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}/"
+          }
+        },
+        {
+          "name": "Update Tenant (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tenant One Updated\",\n  \"domain\": \"tenant-one.example.com\",\n  \"status\": \"suspended\",\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}/"
+          }
+        },
+        {
+          "name": "Patch Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}/"
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants - Branding",
+      "item": [
+        {
+          "name": "List Branding",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/branding/"
+          }
+        },
+        {
+          "name": "Create Branding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"primary_color\": \"#1F6FEB\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/branding/"
+          }
+        },
+        {
+          "name": "Create Branding (multipart + files)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "tenant",
+                  "value": "{{tenant_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "primary_color",
+                  "value": "#1F6FEB",
+                  "type": "text"
+                },
+                {
+                  "key": "logo_file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "dark_logo_file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "favicon_file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/tenants/branding/"
+          }
+        },
+        {
+          "name": "Get Branding",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/branding/{{branding_id}}/"
+          }
+        },
+        {
+          "name": "Update Branding (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"primary_color\": \"#0EA5E9\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/branding/{{branding_id}}/"
+          }
+        },
+        {
+          "name": "Patch Branding",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primary_color\": \"#9333EA\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/branding/{{branding_id}}/"
+          }
+        },
+        {
+          "name": "Delete Branding",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/branding/{{branding_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants - PII",
+      "item": [
+        {
+          "name": "List Tenant PII",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/pii/"
+          }
+        },
+        {
+          "name": "Create Tenant PII",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"address\": \"Chennai\",\n  \"gstin\": \"33ABCDE1234F1Z5\",\n  \"contact_name\": \"Gowtham\",\n  \"email\": \"gowthamkumar1394@gmail.com\",\n  \"phone\": \"+919876543210\",\n  \"is_anonymized\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/pii/"
+          }
+        },
+        {
+          "name": "Get Tenant PII",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/pii/{{tenant_pii_id}}/"
+          }
+        },
+        {
+          "name": "Update Tenant PII (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"address\": \"Bengaluru\",\n  \"gstin\": \"33ABCDE1234F1Z5\",\n  \"contact_name\": \"Gowtham Kumar\",\n  \"email\": \"gowthamkumar1394@gmail.com\",\n  \"phone\": \"+919876543210\",\n  \"is_anonymized\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/pii/{{tenant_pii_id}}/"
+          }
+        },
+        {
+          "name": "Patch Tenant PII",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"Hyderabad\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/pii/{{tenant_pii_id}}/"
+          }
+        },
+        {
+          "name": "Delete Tenant PII",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tenants/pii/{{tenant_pii_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/customers/"
+          }
+        },
+        {
+          "name": "List Customers by Tenant (SUPER_ADMIN)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/customers/?tenant_id={{tenant_id}}"
+          }
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"customer_code\": \"CUST-1001\",\n  \"full_name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"12 Beach Road\",\n  \"city\": \"Chennai\",\n  \"state\": \"Tamil Nadu\",\n  \"postal_code\": \"600001\",\n  \"status\": \"active\",\n  \"notes\": \"VIP customer\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/customers/"
+          }
+        },
+        {
+          "name": "Get Customer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
+          }
+        },
+        {
+          "name": "Update Customer (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"customer_code\": \"CUST-1001\",\n  \"full_name\": \"John Doe Updated\",\n  \"email\": \"john.updated@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"45 Lake View\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postal_code\": \"560001\",\n  \"status\": \"active\",\n  \"notes\": \"Updated notes\",\n  \"is_archived\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
+          }
+        },
+        {
+          "name": "Patch Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\",\n  \"notes\": \"Temporarily inactive\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "key": "tenant_id",
+      "value": ""
+    },
+    {
+      "key": "plan_id",
+      "value": ""
+    },
+    {
+      "key": "ledger_id",
+      "value": ""
+    },
+    {
+      "key": "subscription_id",
+      "value": ""
+    },
+    {
+      "key": "addon_id",
+      "value": ""
+    },
+    {
+      "key": "branding_id",
+      "value": ""
+    },
+    {
+      "key": "tenant_pii_id",
+      "value": ""
+    },
+    {
+      "key": "customer_id",
+      "value": ""
+    }
+  ]
+}

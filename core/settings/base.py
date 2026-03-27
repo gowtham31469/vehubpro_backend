@@ -1,8 +1,8 @@
 """Base Django settings shared by all environments."""
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 import environ
 
@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.platform.tenants",
     "apps.platform.billing",
     "apps.platform.users",
+    "apps.platform.customers",
     "apps.consent",
     "apps.portal",
 ]
@@ -101,13 +102,32 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# User-uploaded media (tenant branding, etc.)
+MEDIA_URL = env("MEDIA_URL", default="/media/")
+MEDIA_ROOT = Path(env.str("MEDIA_ROOT", default=str(BASE_DIR / "media")))
+
+# Public API base used to build absolute URLs for locally stored media
+BASE_URL = env("BASE_URL", default="http://127.0.0.1:8000")
+
+# LOCAL | S3
+STORAGE_TYPE = env("STORAGE_TYPE", default="LOCAL").strip().upper()
+
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
+AWS_REGION = env("AWS_REGION", default="us-east-1")
+AWS_S3_PRESIGN_EXPIRES_SECONDS = env.int("AWS_S3_PRESIGN_EXPIRES_SECONDS", default=3600)
+
+# Branding uploads (png, jpg, jpeg, ico)
+BRANDING_MAX_UPLOAD_BYTES = env.int("BRANDING_MAX_UPLOAD_BYTES", default=2 * 1024 * 1024)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
-# CORS placeholder (install django-cors-headers when enabling):
-# INSTALLED_APPS += ["corsheaders"]
-# MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+INSTALLED_APPS += ["corsheaders"]
+MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://127.0.0.1:5173"])
+CORS_ALLOW_CREDENTIALS = True
 
 LOGGING = get_logging_config(BASE_DIR, env("LOG_LEVEL", default="INFO"))
 
