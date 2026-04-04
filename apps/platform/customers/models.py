@@ -33,6 +33,7 @@ class Customer(BaseModel, SoftArchiveModel):
     postal_code = models.CharField(max_length=20, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     notes = models.TextField(null=True, blank=True)
+    photo = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
         db_table = "customers"

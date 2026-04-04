@@ -3,11 +3,18 @@ from uuid import UUID
 
 from apps.platform.customers.models import Customer
 from apps.platform.masters.models import City, State
+from core.storage import delete_stored_media, resolve_media_url, upload_image_file
+from core.storage.exceptions import StorageValidationError
 
 
 class CustomerSerializer(serializers.ModelSerializer):
     state_name = serializers.CharField(source="state.name", read_only=True)
     city_name = serializers.CharField(source="city.name", read_only=True)
+
+    # Write-only: accepts multipart file upload
+    photo_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    # Read-only: always returns a usable URL (LOCAL or S3 pre-signed)
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
@@ -27,12 +34,20 @@ class CustomerSerializer(serializers.ModelSerializer):
             "postal_code",
             "status",
             "notes",
+            "photo_file",
+            "photo_url",
             "is_archived",
             "archived_at",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "tenant", "archived_at", "created_at", "updated_at", "city_name", "state_name"]
+        read_only_fields = [
+            "id", "tenant", "archived_at", "created_at", "updated_at",
+            "city_name", "state_name", "photo_url",
+        ]
+
+    def get_photo_url(self, obj) -> str | None:
+        return resolve_media_url(obj.photo)
 
     @staticmethod
     def _is_uuid(value) -> bool:
@@ -98,3 +113,33 @@ class CustomerSerializer(serializers.ModelSerializer):
                 {"city": "Selected city does not belong to the selected state."}
             )
         return attrs
+
+    def _handle_photo_upload(self, photo_file, record_id) -> str | None:
+        """Upload photo_file and return stored key. Raises ValidationError on bad file."""
+        try:
+            return upload_image_file(
+                photo_file,
+                folder="customers",
+                record_id=str(record_id),
+            )
+        except StorageValidationError as exc:
+            raise serializers.ValidationError({"photo_file": str(exc)}) from exc
+
+    def create(self, validated_data):
+        photo_file = validated_data.pop("photo_file", None)
+        instance = super().create(validated_data)
+        if photo_file:
+            instance.photo = self._handle_photo_upload(photo_file, instance.id)
+            instance.save(update_fields=["photo", "updated_at"])
+        return instance
+
+    def update(self, instance, validated_data):
+        photo_file = validated_data.pop("photo_file", None)
+        instance = super().update(instance, validated_data)
+        if photo_file:
+            old_photo = instance.photo
+            instance.photo = self._handle_photo_upload(photo_file, instance.id)
+            instance.save(update_fields=["photo", "updated_at"])
+            if old_photo:
+                delete_stored_media(old_photo)
+        return instance

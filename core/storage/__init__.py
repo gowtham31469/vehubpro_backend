@@ -12,8 +12,10 @@ from core.storage.exceptions import (
 )
 from core.storage.resolve import delete_stored_media, resolve_media_url
 from core.storage.upload import (
+    build_media_image_key,
     build_tenant_branding_key,
     upload_branding_asset,
+    upload_image_file,
     upload_media_file,
 )
 
@@ -23,8 +25,10 @@ __all__ = [
     "StorageValidationError",
     "StorageUploadError",
     "upload_branding_asset",
+    "upload_image_file",
     "upload_media_file",
     "build_tenant_branding_key",
+    "build_media_image_key",
     "resolve_media_url",
     "delete_stored_media",
 ]

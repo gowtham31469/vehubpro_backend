@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
 from apps.platform.customers.models import Customer
@@ -16,6 +17,7 @@ def _is_archive_flag(request):
 
 class CustomerListCreateAPIView(APIView):
     permission_classes = [IsAuthenticatedCustomerAccess]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def _tenant_context(self, request):
         tenant_id = getattr(request.user, "tenant_id", None)
@@ -66,6 +68,7 @@ class CustomerListCreateAPIView(APIView):
 
 class CustomerDetailAPIView(APIView):
     permission_classes = [IsAuthenticatedCustomerAccess]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def _tenant_context(self, request):
         tenant_id = getattr(request.user, "tenant_id", None)

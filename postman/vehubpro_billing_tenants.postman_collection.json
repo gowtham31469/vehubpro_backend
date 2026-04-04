@@ -2,7 +2,7 @@
   "info": {
     "name": "VeHubPro Billing & Tenants APIs",
     "_postman_id": "8a2b1e90-4e52-4a0d-9f73-4f9b4a2cba10",
-    "description": "Postman collection for Billing and Tenants app APIs.",
+    "description": "Postman collection for Billing, Tenants, Customers, Vehicles (brands/models), and Service vehicles. Tenant-scoped routes use JWT (tenant_id from token); do not send tenant in body.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -782,20 +782,7 @@
                 "value": "Bearer {{access_token}}"
               }
             ],
-            "url": "{{base_url}}/api/v1/customers/"
-          }
-        },
-        {
-          "name": "List Customers by Tenant (SUPER_ADMIN)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": "{{base_url}}/api/v1/customers/?tenant_id={{tenant_id}}"
+            "url": "{{base_url}}/api/v1/customers/?page=1&page_size=10&is_archive=false"
           }
         },
         {
@@ -814,7 +801,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"customer_code\": \"CUST-1001\",\n  \"full_name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"12 Beach Road\",\n  \"city\": \"Chennai\",\n  \"state\": \"Tamil Nadu\",\n  \"postal_code\": \"600001\",\n  \"status\": \"active\",\n  \"notes\": \"VIP customer\"\n}"
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"12 Beach Road\",\n  \"city\": \"{{city_id}}\",\n  \"state\": \"{{state_id}}\",\n  \"postal_code\": \"600001\",\n  \"status\": \"active\",\n  \"notes\": \"VIP customer\"\n}"
             },
             "url": "{{base_url}}/api/v1/customers/"
           }
@@ -848,7 +835,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenant\": \"{{tenant_id}}\",\n  \"customer_code\": \"CUST-1001\",\n  \"full_name\": \"John Doe Updated\",\n  \"email\": \"john.updated@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"45 Lake View\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postal_code\": \"560001\",\n  \"status\": \"active\",\n  \"notes\": \"Updated notes\",\n  \"is_archived\": false\n}"
+              "raw": "{\n  \"full_name\": \"John Doe Updated\",\n  \"email\": \"john.updated@example.com\",\n  \"phone\": \"+919876543210\",\n  \"alternate_phone\": \"+919876543211\",\n  \"address\": \"45 Lake View\",\n  \"city\": \"{{city_id}}\",\n  \"state\": \"{{state_id}}\",\n  \"postal_code\": \"560001\",\n  \"status\": \"active\",\n  \"notes\": \"Updated notes\"\n}"
             },
             "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
           }
@@ -875,7 +862,7 @@
           }
         },
         {
-          "name": "Delete Customer",
+          "name": "Delete Customer (Archive)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -885,6 +872,340 @@
               }
             ],
             "url": "{{base_url}}/api/v1/customers/{{customer_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles - Brands",
+      "item": [
+        {
+          "name": "List Brands (tenant from token)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/brands/?page=1&page_size=10"
+          }
+        },
+        {
+          "name": "Create Brand",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maruti Suzuki\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/brands/"
+          }
+        },
+        {
+          "name": "Get Brand",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/brands/{{vehicle_brand_id}}/"
+          }
+        },
+        {
+          "name": "Update Brand (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maruti Suzuki India\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/brands/{{vehicle_brand_id}}/"
+          }
+        },
+        {
+          "name": "Patch Brand",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/brands/{{vehicle_brand_id}}/"
+          }
+        },
+        {
+          "name": "Delete Brand",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/brands/{{vehicle_brand_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles - Models",
+      "item": [
+        {
+          "name": "List Models (tenant from token)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/models/?page=1&page_size=10"
+          }
+        },
+        {
+          "name": "List Models by Brand",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/models/?brand_id={{vehicle_brand_id}}&page=1&page_size=10"
+          }
+        },
+        {
+          "name": "Create Model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"{{vehicle_brand_id}}\",\n  \"name\": \"Swift\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/models/"
+          }
+        },
+        {
+          "name": "Get Model",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/models/{{vehicle_model_id}}/"
+          }
+        },
+        {
+          "name": "Update Model (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"{{vehicle_brand_id}}\",\n  \"name\": \"Swift Dzire\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/models/{{vehicle_model_id}}/"
+          }
+        },
+        {
+          "name": "Patch Model",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/models/{{vehicle_model_id}}/"
+          }
+        },
+        {
+          "name": "Delete Model",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/models/{{vehicle_model_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Service vehicles",
+      "item": [
+        {
+          "name": "List service vehicles (tenant from token)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/?page=1&page_size=10&is_archive=false"
+          }
+        },
+        {
+          "name": "Create service vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{customer_id}}\",\n  \"registration_no\": \"TN01AB1234\",\n  \"vehicle_type\": \"{{vehicle_type_id}}\",\n  \"brand\": \"{{vehicle_brand_id}}\",\n  \"vehicle_model\": \"{{vehicle_model_id}}\",\n  \"year\": 2022,\n  \"fuel_type\": \"{{fuel_type_id}}\",\n  \"engine_cc\": 1197,\n  \"vin_number\": null,\n  \"color\": \"White\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/"
+          }
+        },
+        {
+          "name": "Get service vehicle",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/{{service_vehicle_id}}/"
+          }
+        },
+        {
+          "name": "Update service vehicle (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{customer_id}}\",\n  \"registration_no\": \"TN01AB1234\",\n  \"vehicle_type\": \"{{vehicle_type_id}}\",\n  \"brand\": \"{{vehicle_brand_id}}\",\n  \"vehicle_model\": \"{{vehicle_model_id}}\",\n  \"year\": 2022,\n  \"fuel_type\": \"{{fuel_type_id}}\",\n  \"engine_cc\": 1197,\n  \"vin_number\": \"\",\n  \"color\": \"Pearl White\",\n  \"insurance_expiry\": null,\n  \"puc_expiry\": null,\n  \"permit_expiry\": null,\n  \"fitness_cert_expiry\": null,\n  \"no_of_wheels\": 4,\n  \"load_capacity_kg\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/{{service_vehicle_id}}/"
+          }
+        },
+        {
+          "name": "Patch service vehicle",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"color\": \"Silver\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/vehicles/{{service_vehicle_id}}/"
+          }
+        },
+        {
+          "name": "Delete service vehicle (archive)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/vehicles/{{service_vehicle_id}}/"
           }
         }
       ]
@@ -933,6 +1254,34 @@
     },
     {
       "key": "customer_id",
+      "value": ""
+    },
+    {
+      "key": "state_id",
+      "value": ""
+    },
+    {
+      "key": "city_id",
+      "value": ""
+    },
+    {
+      "key": "vehicle_brand_id",
+      "value": ""
+    },
+    {
+      "key": "vehicle_model_id",
+      "value": ""
+    },
+    {
+      "key": "vehicle_type_id",
+      "value": ""
+    },
+    {
+      "key": "fuel_type_id",
+      "value": ""
+    },
+    {
+      "key": "service_vehicle_id",
       "value": ""
     }
   ]

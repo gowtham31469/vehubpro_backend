@@ -20,6 +20,14 @@ ALLOWED_BRANDING_EXTENSIONS: dict[str, tuple[str, ...]] = {
     ".ico": ("image/x-icon", "image/vnd.microsoft.icon", "image/ico"),
 }
 
+# General image uploads (customers, vehicles, etc.)
+ALLOWED_IMAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
+    ".png": ("image/png",),
+    ".jpg": ("image/jpeg",),
+    ".jpeg": ("image/jpeg",),
+    ".webp": ("image/webp",),
+}
+
 
 def normalize_extension(filename: str) -> str:
     return Path(filename or "").suffix.lower()
@@ -61,6 +69,48 @@ def validate_branding_upload(
             )
             raise StorageValidationError(
                 "File content type does not match extension for allowed branding types."
+            )
+
+    return ext
+
+
+def validate_image_upload(
+    uploaded_file: UploadedFile,
+    *,
+    max_bytes: int | None = None,
+) -> str:
+    """
+    Validate a general image upload (png, jpg, jpeg, webp).
+
+    Returns normalized extension including dot (e.g. ".jpg").
+    Raises StorageValidationError on failure.
+    """
+    limit = max_bytes if max_bytes is not None else int(
+        getattr(settings, "BRANDING_MAX_UPLOAD_BYTES", 2 * 1024 * 1024)
+    )
+    if uploaded_file.size > limit:
+        raise StorageValidationError(
+            f"Image too large. Maximum size is {limit // (1024 * 1024)} MB."
+        )
+
+    ext = normalize_extension(uploaded_file.name)
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise StorageValidationError(
+            "Unsupported image type. Allowed: png, jpg, jpeg, webp."
+        )
+
+    content_type = (uploaded_file.content_type or "").lower().split(";")[0].strip()
+    allowed_types = ALLOWED_IMAGE_EXTENSIONS[ext]
+    if content_type and content_type not in allowed_types:
+        if content_type not in ("application/octet-stream",):
+            logger.warning(
+                "Image upload content_type mismatch for %s: got %s, expected one of %s",
+                uploaded_file.name,
+                content_type,
+                allowed_types,
+            )
+            raise StorageValidationError(
+                "Image content type does not match file extension."
             )
 
     return ext

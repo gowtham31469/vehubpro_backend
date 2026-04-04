@@ -16,7 +16,7 @@ from django.core.files.uploadedfile import UploadedFile
 from core.storage.exceptions import StorageConfigError
 from core.storage.local_backend import save_upload_local
 from core.storage.s3_backend import upload_to_s3
-from core.storage.validation import validate_branding_upload
+from core.storage.validation import validate_branding_upload, validate_image_upload
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,51 @@ def upload_branding_asset(
     """
     ext = validate_branding_upload(uploaded_file)
     relative_key = build_tenant_branding_key(str(tenant_id), asset_kind, ext)
+    backend = getattr(settings, "STORAGE_TYPE", "LOCAL").upper()
+
+    if backend == "LOCAL":
+        return save_upload_local(uploaded_file, relative_key)
+    if backend == "S3":
+        content_type = (uploaded_file.content_type or "").split(";")[0].strip() or None
+        return upload_to_s3(uploaded_file, relative_key, content_type)
+
+    logger.error("Unsupported STORAGE_TYPE: %s", backend)
+    raise StorageConfigError(f"Unsupported STORAGE_TYPE: {backend}")
+
+
+def build_media_image_key(folder: str, record_id: str, ext: str) -> str:
+    """
+    Relative path / S3 key for a model image.
+
+    Pattern: <folder>/<record_id>/<uuid><ext>
+    e.g.  customers/abc-123/f47ac10b-58cc.jpg
+          service_vehicles/xyz-456/3f2504e0-4f89.png
+    """
+    safe_folder = folder.replace("\\", "").replace("/", "").strip()
+    if not safe_folder or ".." in safe_folder:
+        raise StorageConfigError("Invalid folder name for image storage path.")
+    rid = str(record_id).replace("/", "").replace("..", "")
+    return f"{safe_folder}/{rid}/{uuid.uuid4()}{ext}"
+
+
+def upload_image_file(
+    uploaded_file: UploadedFile,
+    *,
+    folder: str,
+    record_id: str,
+    max_bytes: int | None = None,
+) -> str:
+    """
+    Validate and store a general image (png, jpg, jpeg, webp).
+
+    - ``folder``    : top-level storage folder, e.g. "customers" or "service_vehicles"
+    - ``record_id`` : UUID of the owning record, used to namespace the file
+    - ``max_bytes`` : override size limit (defaults to BRANDING_MAX_UPLOAD_BYTES)
+
+    Returns the relative key / S3 key to persist in the database.
+    """
+    ext = validate_image_upload(uploaded_file, max_bytes=max_bytes)
+    relative_key = build_media_image_key(folder, str(record_id), ext)
     backend = getattr(settings, "STORAGE_TYPE", "LOCAL").upper()
 
     if backend == "LOCAL":

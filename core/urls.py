@@ -11,6 +11,10 @@ urlpatterns = [
     path("api/v1/tenants/", include("apps.platform.tenants.urls")),
     path("api/v1/masters/", include("apps.platform.masters.urls")),
     path("api/v1/customers/", include("apps.platform.customers.urls")),
+    path("api/v1/vehicles/", include("apps.platform.vehicles.urls")),
+    path("api/v1/services/", include("apps.platform.services.urls")),
+    path("api/v1/job-cards/", include("apps.platform.jobcards.urls")),
+    path("api/v1/invoices/", include("apps.platform.invoices.urls")),
 ]
 
 if settings.DEBUG:

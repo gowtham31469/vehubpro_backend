@@ -37,6 +37,10 @@ INSTALLED_APPS = [
     "apps.platform.billing",
     "apps.platform.users",
     "apps.platform.customers",
+    "apps.platform.vehicles",
+    "apps.platform.services",
+    "apps.platform.jobcards",
+    "apps.platform.invoices",
     "apps.consent",
     "apps.portal",
 ]
