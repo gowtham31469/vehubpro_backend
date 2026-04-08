@@ -54,7 +54,7 @@ class JobCardListCreateAPIView(APIView):
             .select_related("customer", "vehicle", "vehicle__brand", "vehicle__vehicle_model", "assigned_technician")
             .prefetch_related("line_items")
             .filter(_tab_q(tab))
-            .order_by("-created_at")
+            .order_by("-created_at", "-jobcard_number")
         )
         if search:
             queryset = queryset.filter(
@@ -138,6 +138,13 @@ class JobCardDetailAPIView(APIView):
         if error:
             return error
         instance = self.get_object(request, pk)
+        if instance.status == JobCard.STATUS_INVOICED:
+            return error_response(
+                request,
+                code="JOB_CARD_LOCKED",
+                message="This job card is already invoiced and cannot be modified.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         payload = request.data.copy()
         payload.pop("tenant", None)
         payload.pop("jobcard_number", None)
@@ -159,6 +166,13 @@ class JobCardDetailAPIView(APIView):
         if error:
             return error
         instance = self.get_object(request, pk)
+        if instance.status == JobCard.STATUS_INVOICED:
+            return error_response(
+                request,
+                code="JOB_CARD_LOCKED",
+                message="This job card is already invoiced and cannot be modified.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         payload = request.data.copy()
         payload.pop("tenant", None)
         payload.pop("jobcard_number", None)

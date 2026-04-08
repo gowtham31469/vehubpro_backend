@@ -9,3 +9,5 @@ django-auditlog
 Pillow
 boto3
 django-cors-headers
+reportlab
+weasyprint

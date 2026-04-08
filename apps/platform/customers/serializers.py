@@ -32,6 +32,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             "city_name",
             "state_name",
             "postal_code",
+            "gstin",
             "status",
             "notes",
             "photo_file",
@@ -98,6 +99,17 @@ class CustomerSerializer(serializers.ModelSerializer):
         if not phone:
             raise serializers.ValidationError("Phone number is required.")
         return phone
+
+    def validate_gstin(self, value):
+        gstin = (value or "").strip().upper()
+        if not gstin:
+            return None
+        # GST format: 2-digit state code + 10-char PAN + 1 entity digit + 'Z' + 1 check char
+        import re
+        pattern = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
+        if not re.match(pattern, gstin):
+            raise serializers.ValidationError("Invalid GSTIN format.")
+        return gstin
 
     def validate_full_name(self, value):
         name = (value or "").strip()

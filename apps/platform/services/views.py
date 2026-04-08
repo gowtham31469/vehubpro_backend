@@ -4,6 +4,10 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 
+from core.storage.resolve import delete_stored_media
+from core.storage.upload import upload_image_file
+from core.storage.validation import StorageValidationError
+
 from apps.platform.services.models import ServiceCategory, ServiceItem
 from apps.platform.services.permissions import IsAuthenticatedServiceAccess
 from apps.platform.services.serializers import (
@@ -55,7 +59,7 @@ class ServiceCategoryListCreateAPIView(APIView):
             return error
         queryset = ServiceCategory.objects.filter(
             tenant_id=tenant_id, is_archived=_is_archive_flag(request)
-        ).order_by("sort_order", "name")
+        ).order_by("-created_at")
         is_active = _is_active_flag(request)
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
@@ -205,7 +209,7 @@ class ServiceItemListCreateAPIView(APIView):
         queryset = (
             ServiceItem.objects.select_related("category", "tenant")
             .filter(tenant_id=tenant_id, is_archived=_is_archive_flag(request))
-            .order_by("name")
+            .order_by("-created_at")
         )
         if category_id:
             queryset = queryset.filter(category_id=category_id, category__tenant_id=tenant_id)
@@ -331,11 +335,118 @@ class ServiceItemDetailAPIView(APIView):
         if error:
             return error
         item = get_object_or_404(ServiceItem, pk=pk, tenant_id=tenant_id, is_archived=False)
+        if item.image:
+            delete_stored_media(item.image)
         item.archive()
         return success_response(
             request,
             code="SERVICE_ITEM_DELETED",
             message="Service item archived successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Service Item Image upload / delete
+# ---------------------------------------------------------------------------
+
+
+class ServiceItemImageAPIView(APIView):
+    """
+    PUT  /api/v1/services/items/<uuid:pk>/image/
+        Upload or replace the service item image.
+        Accepts multipart/form-data with field ``image``.
+        Returns updated ServiceItem data including ``image_url``.
+
+    DELETE /api/v1/services/items/<uuid:pk>/image/
+        Remove the stored image and clear ``image`` field.
+    """
+
+    permission_classes = [IsAuthenticatedServiceAccess]
+
+    def put(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        item = get_object_or_404(ServiceItem, pk=pk, tenant_id=tenant_id, is_archived=False)
+
+        uploaded = request.FILES.get("image")
+        if not uploaded:
+            return error_response(
+                request,
+                code="IMAGE_MISSING",
+                message="No image file provided.",
+                error="Include the image file under the 'image' form field.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            new_key = upload_image_file(
+                uploaded,
+                folder="service_item_images",
+                record_id=str(item.id),
+                max_bytes=2 * 1024 * 1024,  # 2 MB
+            )
+        except StorageValidationError as exc:
+            return error_response(
+                request,
+                code="IMAGE_VALIDATION_ERROR",
+                message=str(exc),
+                error=str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            return error_response(
+                request,
+                code="IMAGE_UPLOAD_FAILED",
+                message="Image upload failed.",
+                error=str(exc),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Delete old image after successful upload
+        if item.image:
+            delete_stored_media(item.image)
+
+        item.image = new_key
+        item.save(update_fields=["image", "updated_at"])
+
+        serializer = ServiceItemSerializer(item)
+        return success_response(
+            request,
+            code="SERVICE_ITEM_IMAGE_UPLOADED",
+            message="Service item image uploaded successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        item = get_object_or_404(ServiceItem, pk=pk, tenant_id=tenant_id, is_archived=False)
+
+        if not item.image:
+            return error_response(
+                request,
+                code="IMAGE_NOT_FOUND",
+                message="This service item has no image.",
+                error="No image to delete.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        delete_stored_media(item.image)
+        item.image = None
+        item.save(update_fields=["image", "updated_at"])
+
+        serializer = ServiceItemSerializer(item)
+        return success_response(
+            request,
+            code="SERVICE_ITEM_IMAGE_DELETED",
+            message="Service item image removed successfully.",
+            data=serializer.data,
             status_code=status.HTTP_200_OK,
         )

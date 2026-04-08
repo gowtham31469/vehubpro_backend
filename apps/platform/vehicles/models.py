@@ -95,6 +95,7 @@ class ServiceVehicle(BaseModel, SoftArchiveModel):
     engine_cc = models.SmallIntegerField(null=True, blank=True)
     battery_capacity_kwh = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     vin_number = models.CharField(max_length=17, null=True, blank=True)
+    engine_number = models.CharField(max_length=50, null=True, blank=True)
     color = models.CharField(max_length=30, null=True, blank=True)
     insurance_expiry = models.DateField(null=True, blank=True)
     puc_expiry = models.DateField(null=True, blank=True)

@@ -39,6 +39,11 @@ from apps.platform.invoices.service import (
     InvalidJobCardStatus,
     InvoiceService,
 )
+from apps.platform.invoices.pdf_service import (
+    InvoicePdfService,
+    PdfGenerationError,
+    PdfNotAvailableError,
+)
 from apps.platform.jobcards.models import JobCard
 from apps.platform.jobcards.permissions import IsAuthenticatedJobCardAccess
 from core.utils.api_response import error_response, success_response
@@ -165,7 +170,7 @@ class InvoiceListAPIView(APIView):
         queryset = (
             Invoice.objects.filter(tenant_id=tenant_id)
             .select_related("job_card")
-            .order_by("-created_at")
+            .order_by("-created_at", "-invoice_number")
         )
 
         payment_status = request.query_params.get("payment_status", "").strip()
@@ -282,6 +287,82 @@ class RecordPaymentAPIView(APIView):
             message="Payment recorded successfully.",
             data=InvoiceDetailSerializer(invoice).data,
             status_code=status.HTTP_200_OK,
+        )
+
+
+# ── PDF download ─────────────────────────────────────────────────────────────
+
+class InvoicePdfAPIView(APIView):
+    """
+    POST /api/v1/invoices/{id}/generate-pdf/
+
+    Generates (or returns the cached) PDF for an invoice and returns its URL.
+
+    Query params
+    ------------
+    force   "true" to regenerate even if a PDF already exists (e.g. after
+            payment status changes). Defaults to false.
+
+    Response
+    --------
+    200  { "pdf_url": "...", "generated": false }   — existing PDF returned
+    201  { "pdf_url": "...", "generated": true  }   — freshly generated PDF
+
+    Compliance
+    ----------
+    - PII_ACCESS audit event is logged (PDF decrypts customer PII at render time).
+    - If invoice.is_pii_erased is True, the PDF is generated with [DATA ERASED]
+      placeholders so the file contains no personal data.
+    - On S3: pdf_url is a pre-signed, time-limited URL (AWS_S3_PRESIGN_EXPIRES_SECONDS).
+    - On LOCAL: pdf_url is an absolute URL via BASE_URL + MEDIA_URL.
+    """
+
+    permission_classes = [IsAuthenticatedInvoiceAccess]
+
+    def post(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        invoice = get_object_or_404(
+            Invoice.objects.prefetch_related("line_items"),
+            pk=pk,
+            tenant_id=tenant_id,
+        )
+
+        force = request.query_params.get("force", "false").lower() in {"true", "1", "yes"}
+        already_had_pdf = bool(invoice.pdf_key) and not force
+
+        # Audit — generating the PDF decrypts PII at render time
+        _log_pii_access(request, invoice)
+
+        try:
+            pdf_key = InvoicePdfService.generate_and_store(invoice, force=force)
+        except PdfNotAvailableError as exc:
+            return error_response(
+                request,
+                code="PDF_DEPENDENCY_MISSING",
+                message=str(exc),
+                error="weasyprint must be installed to generate PDFs.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except PdfGenerationError as exc:
+            return error_response(
+                request,
+                code="PDF_GENERATION_FAILED",
+                message=str(exc),
+                error="An error occurred while generating the invoice PDF.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        pdf_url = InvoicePdfService.resolve_url(pdf_key)
+        generated = not already_had_pdf
+        return success_response(
+            request,
+            code="PDF_READY",
+            message="Invoice PDF is ready.",
+            data={"pdf_url": pdf_url, "generated": generated},
+            status_code=status.HTTP_200_OK if already_had_pdf else status.HTTP_201_CREATED,
         )
 
 

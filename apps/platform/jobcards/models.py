@@ -133,7 +133,7 @@ class JobCard(BaseModel):
 
     class Meta:
         db_table = "job_cards"
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-jobcard_number"]
         constraints = [
             models.UniqueConstraint(fields=["tenant", "jobcard_number"], name="uniq_jobcard_number_per_tenant"),
         ]
@@ -141,6 +141,7 @@ class JobCard(BaseModel):
             models.Index(fields=["tenant", "status"]),
             models.Index(fields=["tenant", "customer"]),
             models.Index(fields=["tenant", "vehicle"]),
+            models.Index(fields=["tenant", "created_at"]),
         ]
 
     def __str__(self) -> str:

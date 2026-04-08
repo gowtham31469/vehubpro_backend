@@ -47,6 +47,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 
 class ServiceItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default=None)
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ServiceItem
@@ -62,6 +63,8 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "gst_percentage",
             "unit_type",
             "applicable_vehicle_types",
+            "image",
+            "image_url",
             "is_active",
             "is_archived",
             "archived_at",
@@ -72,11 +75,22 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "id",
             "tenant",
             "category_name",
+            "image",
+            "image_url",
             "is_archived",
             "archived_at",
             "created_at",
             "updated_at",
         ]
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        try:
+            from core.storage.resolve import resolve_media_url
+            return resolve_media_url(obj.image)
+        except Exception:
+            return None
 
     def validate_name(self, value):
         name = (value or "").strip()

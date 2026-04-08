@@ -182,6 +182,7 @@ class ServiceVehicleSerializer(serializers.ModelSerializer):
             "engine_cc",
             "battery_capacity_kwh",
             "vin_number",
+            "engine_number",
             "color",
             "insurance_expiry",
             "puc_expiry",

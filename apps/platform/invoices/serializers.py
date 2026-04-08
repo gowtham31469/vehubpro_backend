@@ -57,6 +57,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
     """Compact representation for list views — no PII, no line items."""
 
     balance_due = serializers.SerializerMethodField()
+    pdf_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -79,6 +80,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "amount_paid",
             "balance_due",
             "is_pii_erased",
+            "pdf_url",
             "created_at",
             "updated_at",
         ]
@@ -87,6 +89,15 @@ class InvoiceListSerializer(serializers.ModelSerializer):
     def get_balance_due(self, obj) -> str:
         balance = max(Decimal("0"), Decimal(str(obj.total_amount)) - Decimal(str(obj.amount_paid)))
         return str(balance)
+
+    def get_pdf_url(self, obj) -> str | None:
+        if not obj.pdf_key:
+            return None
+        try:
+            from core.storage.resolve import resolve_media_url
+            return resolve_media_url(obj.pdf_key)
+        except Exception:
+            return None
 
 
 class InvoiceDetailSerializer(InvoiceListSerializer):

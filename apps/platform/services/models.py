@@ -71,6 +71,12 @@ class ServiceItem(BaseModel, SoftArchiveModel):
         blank=True,
         help_text="Overrides category filter. Empty = inherits from category.",
     )
+    image = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative storage key (LOCAL path or S3 key) for the service item icon/image.",
+    )
     is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:

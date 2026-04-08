@@ -208,7 +208,7 @@ class VehicleBrandListCreateAPIView(APIView):
         if error:
             return error
         queryset = VehicleBrand.objects.filter(tenant_id=tenant_id, is_archived=_is_archive_flag(request)).order_by(
-            "name"
+            "-created_at"
         )
         is_active = _is_active_flag(request)
         if is_active is not None:
@@ -329,7 +329,7 @@ class VehicleModelListCreateAPIView(APIView):
         queryset = (
             VehicleModel.objects.select_related("brand", "tenant", "vehicle_type")
             .filter(tenant_id=tenant_id, is_archived=_is_archive_flag(request))
-            .order_by("name")
+            .order_by("-created_at")
         )
         if brand_id:
             queryset = queryset.filter(brand_id=brand_id, brand__tenant_id=tenant_id)

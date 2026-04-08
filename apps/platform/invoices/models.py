@@ -162,9 +162,21 @@ class Invoice(BaseModel):
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = models.TextField(blank=True, default="")
 
+    # ── PDF storage ───────────────────────────────────────────────────────────
+    # Relative MEDIA_ROOT path (LOCAL) or S3 object key. Mirrors the same
+    # convention used by tenant branding and vehicle photo uploads.
+    # Nulled when PII is erased (DPDP/GDPR) because the PDF contains customer
+    # personal data baked into the rendered document.
+    pdf_key = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative path (LOCAL) or S3 object key for the generated invoice PDF.",
+    )
+
     class Meta:
         db_table = "invoices"
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-invoice_number"]
         constraints = [
             models.UniqueConstraint(
                 fields=["tenant", "invoice_number"],
@@ -223,6 +235,10 @@ class Invoice(BaseModel):
         self.customer_gstin = None
         self.is_pii_erased = True
         self.pii_erased_at = timezone.now()
+        # The PDF contains customer PII baked into the rendered document.
+        # Null the key so the stored file is no longer referenced (caller
+        # must also delete the physical file via delete_stored_media).
+        self.pdf_key = None
 
 
 class InvoiceLineItem(BaseModel):

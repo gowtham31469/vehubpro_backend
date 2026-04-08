@@ -31,6 +31,12 @@ class Customer(BaseModel, SoftArchiveModel):
         related_name="customers",
     )
     postal_code = models.CharField(max_length=20, null=True, blank=True)
+    gstin = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        help_text="Optional GSTIN for B2B customers (15-character GST identification number).",
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
     notes = models.TextField(null=True, blank=True)
     photo = models.CharField(max_length=500, null=True, blank=True)

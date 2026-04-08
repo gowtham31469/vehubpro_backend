@@ -305,7 +305,12 @@ class InvoiceService:
         Null all customer PII snapshot fields.
         Financial totals are untouched (GST compliance).
         Called from the platform-level DPDP / GDPR erasure workflow.
+
+        Also deletes the stored PDF (which contains baked-in PII) and nulls
+        pdf_key so the file is no longer referenced by any URL.
         """
+        # Delete stored PDF before nulling the key — erase_pii() nulls pdf_key
+        old_pdf_key = invoice.pdf_key
         invoice.erase_pii()
         invoice.save(update_fields=[
             "customer_name_encrypted", "customer_name_key_version",
@@ -314,6 +319,17 @@ class InvoiceService:
             "customer_address_encrypted", "customer_address_key_version",
             "customer_gstin",
             "is_pii_erased", "pii_erased_at",
+            "pdf_key",
             "updated_at",
         ])
+        if old_pdf_key:
+            try:
+                from core.storage.resolve import delete_stored_media
+                delete_stored_media(old_pdf_key)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Could not delete PDF %s during PII erasure for invoice %s",
+                    old_pdf_key, invoice.pk,
+                )
         return invoice
