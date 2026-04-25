@@ -1,0 +1,57 @@
+[
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "create",
+      "name": "Create",
+      "description": "Permission to create records"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "update",
+      "name": "Update",
+      "description": "Permission to update records"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000003",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "delete",
+      "name": "Delete",
+      "description": "Permission to delete records"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000004",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "view",
+      "name": "View",
+      "description": "Permission to view records"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000005",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "approve",
+      "name": "Approve",
+      "description": "Permission to approve records"
+    }
+  }
+]

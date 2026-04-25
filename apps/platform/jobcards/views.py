@@ -7,6 +7,11 @@ from rest_framework.views import APIView
 from apps.platform.jobcards.models import JobCard
 from apps.platform.jobcards.permissions import IsAuthenticatedJobCardAccess
 from apps.platform.jobcards.serializers import JobCardSerializer
+from apps.platform.jobcards.pdf_service import (
+    JobCardPdfService,
+    PdfGenerationError,
+    PdfNotAvailableError,
+)
 from core.utils.api_response import error_response, success_response
 from core.utils.pagination import StandardResultsSetPagination
 
@@ -29,9 +34,9 @@ def _tab_q(tab: str) -> Q:
     if t == "all" or not t:
         return Q()
     if t == "open":
-        return Q(status__in=[JobCard.STATUS_DRAFT, JobCard.STATUS_CONFIRMED])
+        return Q(status=JobCard.STATUS_JOB_CONTROL)
     if t == "in_progress":
-        return Q(status__in=[JobCard.STATUS_IN_PROGRESS, JobCard.STATUS_ON_HOLD])
+        return Q(status__in=[JobCard.STATUS_WORKING, JobCard.STATUS_READY_FOR_FI])
     if t == "completed":
         return Q(status=JobCard.STATUS_COMPLETED)
     if t == "delivered":
@@ -233,3 +238,92 @@ class JobCardStatsAPIView(APIView):
             },
             status_code=status.HTTP_200_OK,
         )
+
+
+class JobCardPdfAPIView(APIView):
+    """
+    POST /api/v1/job-cards/{id}/generate-pdf/
+
+    Generates an operational PDF for a job card and returns its pre-signed URL.
+    """
+
+    permission_classes = [IsAuthenticatedJobCardAccess]
+
+    def post(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        job_card = get_object_or_404(
+            JobCard.objects.select_related(
+                "customer", "vehicle", "vehicle__brand", "vehicle__vehicle_model", "tenant"
+            ).prefetch_related("line_items"),
+            pk=pk,
+            tenant_id=tenant_id,
+        )
+
+        if job_card.status == JobCard.STATUS_JOB_CONTROL:
+            return error_response(
+                request,
+                code="PDF_NOT_ALLOWED",
+                message="Job card PDF is not available while the job card is in 'Job Control' status.",
+                error="Move the job card to Working or beyond before downloading.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Audit — generating the PDF may decrypt PII (name, phone) at render time
+        _log_pii_access(request, job_card)
+
+        try:
+            pdf_key = JobCardPdfService.generate_and_store(job_card, force=True)
+            pdf_url = JobCardPdfService.resolve_url(pdf_key)
+        except PdfNotAvailableError as exc:
+            return error_response(
+                request,
+                code="PDF_DEPENDENCY_MISSING",
+                message=str(exc),
+                error="weasyprint must be installed to generate PDFs.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except PdfGenerationError as exc:
+            return error_response(
+                request,
+                code="PDF_GENERATION_FAILED",
+                message=str(exc),
+                error="An error occurred while generating the job card PDF.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return success_response(
+            request,
+            code="PDF_READY",
+            message="Job card PDF is ready.",
+            data={"pdf_url": pdf_url},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _log_pii_access(request, job_card: JobCard) -> None:
+    try:
+        from core.audit.service import log_audit_event
+        log_audit_event(
+            actor_id=str(request.user.pk),
+            actor_type="user",
+            action="PII_ACCESS",
+            module="JOB_CARD",
+            ip_address=_get_client_ip(request),
+            method=request.method,
+            endpoint=request.path,
+            after={"job_card_id": str(job_card.pk), "jobcard_number": job_card.jobcard_number},
+        )
+    except Exception:
+        pass
+
+
+def _get_client_ip(request) -> str | None:
+    x_forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded:
+        return x_forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")

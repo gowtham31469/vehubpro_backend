@@ -82,22 +82,20 @@ class JobCardLineItem(BaseModel):
 class JobCard(BaseModel):
     """Operational job card per PRD §4.5 (tenant-scoped)."""
 
-    STATUS_DRAFT = "draft"
-    STATUS_CONFIRMED = "confirmed"
-    STATUS_IN_PROGRESS = "in_progress"
-    STATUS_ON_HOLD = "on_hold"
+    STATUS_JOB_CONTROL = "job_control"
+    STATUS_WORKING = "working"
+    STATUS_READY_FOR_FI = "ready_for_fi"
     STATUS_COMPLETED = "completed"
     STATUS_INVOICED = "invoiced"
     STATUS_DELIVERED = "delivered"
     STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = [
-        (STATUS_DRAFT, "Draft"),
-        (STATUS_CONFIRMED, "Confirmed"),
-        (STATUS_IN_PROGRESS, "In progress"),
-        (STATUS_ON_HOLD, "On hold"),
-        (STATUS_COMPLETED, "Completed"),
-        (STATUS_INVOICED, "Invoiced"),
+        (STATUS_JOB_CONTROL, "Job Control"),
+        (STATUS_WORKING, "Working"),
+        (STATUS_READY_FOR_FI, "Ready for FI"),
+        (STATUS_COMPLETED, "Job Completed"),
+        (STATUS_INVOICED, "Invoice"),
         (STATUS_DELIVERED, "Delivered"),
         (STATUS_CANCELLED, "Cancelled"),
     ]
@@ -118,7 +116,7 @@ class JobCard(BaseModel):
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     igst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_JOB_CONTROL, db_index=True)
     assigned_technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

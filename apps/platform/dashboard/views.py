@@ -58,10 +58,10 @@ from core.utils.api_response import error_response, success_response
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-_ACTIVE_STATUSES = ("confirmed", "in_progress", "on_hold")
+_ACTIVE_STATUSES = ("job_control", "working", "ready_for_fi")
 _CLOSED_STATUSES = ("completed", "invoiced", "delivered")
 _ALL_STATUSES = (
-    "draft", "confirmed", "in_progress", "on_hold",
+    "job_control", "working", "ready_for_fi",
     "completed", "invoiced", "delivered", "cancelled",
 )
 
@@ -202,19 +202,18 @@ class JobCardFunnelView(APIView):
     GET /api/v1/dashboard/jobcard-funnel/
 
     Returns job card counts grouped by status for pipeline/funnel charts.
-    All 8 statuses are always present (count defaults to 0).
+    All 7 statuses are always present (count defaults to 0).
 
     Response shape
     --------------
     [
-      {"status": "draft",       "count": 3},
-      {"status": "confirmed",   "count": 12},
-      {"status": "in_progress", "count": 8},
-      {"status": "on_hold",     "count": 3},
-      {"status": "completed",   "count": 47},
-      {"status": "invoiced",    "count": 39},
-      {"status": "delivered",   "count": 180},
-      {"status": "cancelled",   "count": 20}
+      {"status": "job_control",  "count": 3},
+      {"status": "working",      "count": 8},
+      {"status": "ready_for_fi", "count": 3},
+      {"status": "completed",    "count": 47},
+      {"status": "invoiced",     "count": 39},
+      {"status": "delivered",    "count": 180},
+      {"status": "cancelled",    "count": 20}
     ]
     """
     permission_classes = [IsAuthenticatedCustomerAccess]
@@ -377,7 +376,7 @@ class RecentActivityView(APIView):
       {
         "id": "uuid",
         "jobcard_number": "JC/25-26/000042",
-        "status": "in_progress",
+        "status": "working",
         "total_amount": 4500.00,
         "vehicle_registration": "TN40N3409",
         "updated_at": "2026-04-04T09:15:00+00:00",

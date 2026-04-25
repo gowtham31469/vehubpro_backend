@@ -3,7 +3,7 @@
     "model": "users.user",
     "pk": "00000000-0000-0000-0000-000000000001",
     "fields": {
-      "password": "pbkdf2_sha256$1000000$3ehNwS9MRRip12TjJsBjyQ$v0rbXiWFXgUoMeaQ9VH2Q70ThC5nmKZh2B1xEtWurdA=",
+      "password": "pbkdf2_sha256$1000000$awY4PKg0uZYvmFyp7oydDG$9LZuZ4YiVuOEzkFekq7xA5XFy5DMfLcv9YgFLI/WWzU=",
       "last_login": null,
       "is_superuser": true,
       "created_at": "2026-03-20T00:00:00Z",

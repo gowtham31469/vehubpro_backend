@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "auditlog",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    "apps.platform.modules",
     "apps.platform.masters",
     "apps.platform.tenants",
     "apps.platform.billing",

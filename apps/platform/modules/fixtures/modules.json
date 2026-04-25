@@ -1,0 +1,82 @@
+[
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "dashboard",
+      "name": "Dashboard",
+      "description": "Dashboard",
+      "is_active": true,
+      "is_service": false,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "user_management",
+      "name": "User Management",
+      "description": "User Management",
+      "is_active": true,
+      "is_service": false,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000003",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "services",
+      "name": "Services",
+      "description": "Service module",
+      "is_active": true,
+      "is_service": true,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000004",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "portfolio",
+      "name": "Portfolio",
+      "description": "Portfolio module",
+      "is_active": true,
+      "is_service": false,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000005",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "configuration",
+      "name": "Configuration",
+      "description": "Configuration module",
+      "is_active": true,
+      "is_service": false,
+      "created_by": null
+    }
+  }
+]

@@ -1,0 +1,173 @@
+[
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0001-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "STARTER_MONTHLY",
+      "name": "Starter Monthly",
+      "description": "Service Starter package. 3 staff, 500 vehicles, 5 GB storage. Billed monthly.",
+      "price": "1499.00",
+      "billing_cycle": "monthly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 3,
+      "max_vehicles": 500
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0001-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "STARTER_ANNUAL",
+      "name": "Starter Annual",
+      "description": "Service Starter package. 3 staff, 500 vehicles, 5 GB storage. Billed annually.",
+      "price": "14990.00",
+      "billing_cycle": "yearly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 3,
+      "max_vehicles": 500
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0002-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "PRO_MONTHLY",
+      "name": "Pro Monthly",
+      "description": "Service Pro package. 10 staff, 2,000 vehicles, 20 GB storage. Billed monthly.",
+      "price": "3999.00",
+      "billing_cycle": "monthly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 10,
+      "max_vehicles": 2000
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0002-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "PRO_ANNUAL",
+      "name": "Pro Annual",
+      "description": "Service Pro package. 10 staff, 2,000 vehicles, 20 GB storage. Billed annually.",
+      "price": "39990.00",
+      "billing_cycle": "yearly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 10,
+      "max_vehicles": 2000
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0003-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "PORTFOLIO_MONTHLY",
+      "name": "Portfolio Monthly",
+      "description": "Portfolio Basic package. 5 staff, 100 listings, 50 GB media storage. Billed monthly.",
+      "price": "2999.00",
+      "billing_cycle": "monthly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 5,
+      "max_vehicles": 100
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0003-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "PORTFOLIO_ANNUAL",
+      "name": "Portfolio Annual",
+      "description": "Portfolio Basic package. 5 staff, 100 listings, 50 GB media storage. Billed annually.",
+      "price": "29990.00",
+      "billing_cycle": "yearly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 5,
+      "max_vehicles": 100
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0004-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "FULL_PLATFORM_MONTHLY",
+      "name": "Full Platform Monthly",
+      "description": "Full Platform package. 25 staff, unlimited vehicles, 100 GB storage. Billed monthly.",
+      "price": "7999.00",
+      "billing_cycle": "monthly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 25,
+      "max_vehicles": 0
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0004-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "FULL_PLATFORM_ANNUAL",
+      "name": "Full Platform Annual",
+      "description": "Full Platform package. 25 staff, unlimited vehicles, 100 GB storage. Billed annually.",
+      "price": "79990.00",
+      "billing_cycle": "yearly",
+      "is_custom": false,
+      "is_active": true,
+      "max_users": 25,
+      "max_vehicles": 0
+    }
+  },
+  {
+    "model": "billing.plan",
+    "pk": "aaaaaaaa-0005-0000-0000-000000000001",
+    "fields": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "code": "ENTERPRISE",
+      "name": "Enterprise",
+      "description": "Enterprise Suite. Unlimited staff, unlimited vehicles, custom SLA. Custom pricing — contact sales.",
+      "price": "0.00",
+      "billing_cycle": "yearly",
+      "is_custom": true,
+      "is_active": true,
+      "max_users": 0,
+      "max_vehicles": 0
+    }
+  }
+]
