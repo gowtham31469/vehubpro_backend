@@ -58,7 +58,7 @@ def _allocate_invoice_number(tenant_id) -> tuple[str, str, int]:
     )
     row.last_seq += 1
     row.save(update_fields=["last_seq", "updated_at"])
-    invoice_number = f"INV/{fy}/{row.last_seq:06d}"
+    invoice_number = f"INV/{fy}/{row.last_seq:05d}"
     return invoice_number, fy, row.last_seq
 
 
@@ -212,6 +212,8 @@ class InvoiceService:
             sgst_amount=job_card.sgst_amount,
             igst_amount=job_card.igst_amount,
             total_amount=job_card.total_amount,
+            # Carry over next service recommendation from job card
+            next_service_recommendation=getattr(job_card, "next_service_recommendation", "") or "",
             # Payment — starts unpaid
             payment_status=Invoice.PAYMENT_STATUS_UNPAID,
             amount_paid=Decimal("0.00"),

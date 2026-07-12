@@ -112,8 +112,16 @@
 <table class="layout-table">
   <tr>
     <td style="width:50%; padding-right:16px;">
-      {% if logo_data_url %}
-      <img class="brand-logo" src="{{ logo_data_url }}" alt="Logo">&nbsp;&nbsp;{% endif %}<span class="brand-name">{{ tenant_name }}</span>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        {% if logo_data_url %}<img class="brand-logo" src="{{ logo_data_url }}" alt="Logo">{% endif %}
+        <span class="brand-name">{{ tenant_name }}</span>
+      </div>
+      {% if tenant_address %}
+      <div style="font-size:11px; color:#64748b; line-height:1.5; white-space:pre-wrap; margin-top:4px;">{{ tenant_address }}</div>
+      {% endif %}
+      {% if tenant_gstin %}
+      <div style="font-size:10px; font-weight:700; color:#475569; margin-top:4px;">GSTIN: {{ tenant_gstin }}</div>
+      {% endif %}
     </td>
     <td style="width:50%; text-align:right;">
       <div class="inv-title">JOB CARD</div>

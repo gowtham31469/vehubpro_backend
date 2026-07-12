@@ -1,0 +1,67 @@
+[
+  {
+    "model": "modules.tenantmodule",
+    "pk": "b0000000-0000-0001-0000-000000000001",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "1c57fdc9-42d0-4c7c-810e-3902fe23976e",
+      "module": "d0000000-0000-0000-0000-000000000001",
+      "priority": 1,
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "modules.tenantmodule",
+    "pk": "b0000000-0000-0001-0000-000000000002",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "1c57fdc9-42d0-4c7c-810e-3902fe23976e",
+      "module": "d0000000-0000-0000-0000-000000000002",
+      "priority": 2,
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "modules.tenantmodule",
+    "pk": "b0000000-0000-0001-0000-000000000003",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "1c57fdc9-42d0-4c7c-810e-3902fe23976e",
+      "module": "d0000000-0000-0000-0000-000000000003",
+      "priority": 3,
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "modules.tenantmodule",
+    "pk": "b0000000-0000-0001-0000-000000000004",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "1c57fdc9-42d0-4c7c-810e-3902fe23976e",
+      "module": "d0000000-0000-0000-0000-000000000004",
+      "priority": 4,
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "modules.tenantmodule",
+    "pk": "b0000000-0000-0001-0000-000000000005",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "1c57fdc9-42d0-4c7c-810e-3902fe23976e",
+      "module": "d0000000-0000-0000-0000-000000000005",
+      "priority": 5,
+      "created_by": null,
+      "updated_by": null
+    }
+  }
+]

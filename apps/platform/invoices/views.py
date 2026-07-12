@@ -205,6 +205,10 @@ class InvoiceDetailAPIView(APIView):
     GET  /api/v1/invoices/{id}/
          Full invoice detail including decrypted customer PII. Access is logged.
 
+    PATCH /api/v1/invoices/{id}/
+         Update invoice signatures and metadata (customer_signature, admin_signature, etc).
+         Financial totals cannot be modified (immutable after issuance).
+
     PATCH /api/v1/invoices/{id}/record-payment/
           Handled by RecordPaymentAPIView below (separate URL).
     """
@@ -234,6 +238,39 @@ class InvoiceDetailAPIView(APIView):
             request,
             code="DATA_RETRIEVED",
             message="Invoice retrieved successfully.",
+            data=InvoiceDetailSerializer(invoice).data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        invoice = self._get_invoice(request, pk)
+
+        # Only allow updating signature and metadata fields, not financial totals
+        allowed_fields = {
+            'customer_signature',
+            'customer_signature_date',
+            'admin_signature',
+            'admin_signature_date',
+        }
+
+        updates = {}
+        for field in allowed_fields:
+            if field in request.data:
+                updates[field] = request.data[field]
+
+        if updates:
+            Invoice.objects.filter(pk=invoice.pk).update(**updates)
+            for field, value in updates.items():
+                setattr(invoice, field, value)
+
+        return success_response(
+            request,
+            code="INVOICE_UPDATED",
+            message="Invoice updated successfully.",
             data=InvoiceDetailSerializer(invoice).data,
             status_code=status.HTTP_200_OK,
         )
@@ -325,7 +362,7 @@ class InvoicePdfAPIView(APIView):
             return error
 
         invoice = get_object_or_404(
-            Invoice.objects.prefetch_related("line_items"),
+            Invoice.objects.select_related("job_card").prefetch_related("line_items"),
             pk=pk,
             tenant_id=tenant_id,
         )

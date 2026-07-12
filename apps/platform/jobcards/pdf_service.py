@@ -199,10 +199,25 @@ def _build_context(job_card) -> dict:
     discount = Decimal(str(job_card.discount_amount or 0))
     shop_fees = Decimal(str(job_card.shop_fees or 0))
 
+    # ── Tenant address & GSTIN (stored on TenantPII) ─────────────────────
+    tenant_address = ""
+    tenant_gstin = ""
+    if job_card.tenant:
+        try:
+            pii = getattr(job_card.tenant, "pii", None)
+            if pii:
+                tenant_address = pii.address or ""
+                if pii.gstin_encrypted:
+                    tenant_gstin = pii.get_gstin() or ""
+        except Exception:
+            pass
+
     return {
         # Branding
         "logo_data_url":    _logo_data_url(job_card.tenant_id),
         "tenant_name":      job_card.tenant.name if job_card.tenant else "AUTOCARE PRO",
+        "tenant_address":   tenant_address,
+        "tenant_gstin":     tenant_gstin,
         "accent_color":     accent_color,
         # JobCard meta
         "jobcard_number":   job_card.jobcard_number,

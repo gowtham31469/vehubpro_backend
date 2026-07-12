@@ -1,0 +1,15 @@
+[
+  {
+    "model": "tenants.tenantbranding",
+    "pk": "b0000000-0000-0000-0000-000000000002",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "b0000000-0000-0000-0000-000000000001",
+      "logo": null,
+      "dark_logo": null,
+      "favicon": null,
+      "primary_color": "#C82909"
+    }
+  }
+]

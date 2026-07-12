@@ -1,0 +1,22 @@
+[
+  {
+    "model": "billing.tenantsubscription",
+    "pk": "b0000000-0000-0000-0000-000000000004",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "tenant": "b0000000-0000-0000-0000-000000000001",
+      "plan": "aaaaaaaa-0002-0000-0000-000000000002",
+      "start_date": "2026-04-25",
+      "end_date": "2027-04-25",
+      "billing_cycle": "yearly",
+      "price": "39990.00",
+      "max_users": 10,
+      "max_vehicles": 2000,
+      "status": "active",
+      "ledger_entry": null
+    }
+  }
+]

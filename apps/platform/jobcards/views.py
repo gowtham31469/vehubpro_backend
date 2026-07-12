@@ -220,7 +220,7 @@ class JobCardStatsAPIView(APIView):
 
         total_active = qs.exclude(status__in=[JobCard.STATUS_DELIVERED, JobCard.STATUS_CANCELLED]).count()
         in_workshop = qs.filter(
-            status__in=[JobCard.STATUS_IN_PROGRESS, JobCard.STATUS_ON_HOLD, JobCard.STATUS_CONFIRMED]
+            status__in=[JobCard.STATUS_WORKING, JobCard.STATUS_READY_FOR_FI]
         ).count()
         completed_today = qs.filter(status=JobCard.STATUS_COMPLETED, updated_at__date=today).count()
         revenue = qs.exclude(status=JobCard.STATUS_CANCELLED).aggregate(s=Sum("total_amount"))["s"]

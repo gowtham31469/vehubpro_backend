@@ -14,6 +14,16 @@ from core.storage import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_branding_url(stored: str | None) -> str | None:
+    if not stored:
+        return None
+    try:
+        return resolve_media_url(stored)
+    except StorageError as exc:
+        logger.warning("Could not build media URL: %s", exc)
+        return None
+
+
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
@@ -60,6 +70,7 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField(read_only=True)
     dark_logo_url = serializers.SerializerMethodField(read_only=True)
     favicon_url = serializers.SerializerMethodField(read_only=True)
+    business_name = serializers.CharField(source="tenant.name", read_only=True)
 
     class Meta:
         model = TenantBranding
@@ -76,6 +87,7 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
             "dark_logo_file",
             "favicon_file",
             "primary_color",
+            "business_name",
             "created_at",
             "updated_at",
         ]
@@ -88,23 +100,14 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
             "favicon",
         ]
 
-    def _resolve_url(self, stored: str | None) -> str | None:
-        if not stored:
-            return None
-        try:
-            return resolve_media_url(stored)
-        except StorageError as exc:
-            logger.warning("Could not build media URL: %s", exc)
-            return None
-
     def get_logo_url(self, obj):
-        return self._resolve_url(obj.logo)
+        return _resolve_branding_url(obj.logo)
 
     def get_dark_logo_url(self, obj):
-        return self._resolve_url(obj.dark_logo)
+        return _resolve_branding_url(obj.dark_logo)
 
     def get_favicon_url(self, obj):
-        return self._resolve_url(obj.favicon)
+        return _resolve_branding_url(obj.favicon)
 
     def _upload_branding_file(self, instance, attr: str, uploaded, asset_kind: str) -> None:
         if uploaded is None:
@@ -270,3 +273,17 @@ class TenantPIISerializer(serializers.ModelSerializer):
             instance.set_phone(phone)
         instance.save()
         return instance
+
+
+class PublicTenantBrandingSerializer(serializers.ModelSerializer):
+    """Read-only, no-auth serializer exposing only safe branding fields."""
+
+    logo_url = serializers.SerializerMethodField()
+    business_name = serializers.CharField(source="tenant.name", read_only=True)
+
+    class Meta:
+        model = TenantBranding
+        fields = ["logo_url", "primary_color", "business_name"]
+
+    def get_logo_url(self, obj):
+        return _resolve_branding_url(obj.logo)

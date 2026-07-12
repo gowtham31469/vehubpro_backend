@@ -20,7 +20,7 @@ def allocate_next_jobcard_number(tenant_id) -> str:
         )
         row.last_seq += 1
         row.save(update_fields=["last_seq", "updated_at"])
-        return f"JC-{fy}-{row.last_seq:05d}"
+        return f"JC/{fy}/{row.last_seq:05d}"
 
 
 def extended_line_amount(line) -> Decimal:

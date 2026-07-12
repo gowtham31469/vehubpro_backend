@@ -1,0 +1,23 @@
+[
+  {
+    "model": "tenants.tenantpii",
+    "pk": "b0000000-0000-0000-0000-000000000003",
+    "fields": {
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z",
+      "tenant": "b0000000-0000-0000-0000-000000000001",
+      "gstin_encrypted": null,
+      "gstin_key_version": "",
+      "gstin_hash": null,
+      "address": "Chennai, Tamil Nadu, India",
+      "contact_name_encrypted": "gAAAAABp7Jmxw8SccDaInG5tBhCadNXBJS2qfeww8OoFF_gokRB8XF4VJshT4IUS1skx0eLYoz2ZYo3hv4HSqdUJ_qlxVsjoSQ==",
+      "contact_name_key_version": "v1",
+      "email_encrypted": "gAAAAABp7JmxZ6bkhBm3QIqlX-tYn83nehYm61_iptyMELLfbx0GrGrMbjsJ9GhEpxSi6UfCr10ELmJZgVfsX9vsaD8alz6VLaUP6-08yfGfaepCJ4EJoTU=",
+      "email_key_version": "v1",
+      "phone_encrypted": "gAAAAABp7Jmxgi899dzAnYtM7aBKMuhCkMGLe9JhyLgvQ3zpPs2FSVFbBzZFVNk0FD4nl-hzuant10Mj-9cU2bqj0iEHrdGDuw==",
+      "phone_key_version": "v1",
+      "is_anonymized": false,
+      "anonymized_at": null
+    }
+  }
+]

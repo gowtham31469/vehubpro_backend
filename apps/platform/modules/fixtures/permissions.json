@@ -53,5 +53,38 @@
       "name": "Approve",
       "description": "Permission to approve records"
     }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000006",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "download",
+      "name": "Download",
+      "description": "Permission to Download records"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000007",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "generate_invoice",
+      "name": "Generate Invoice",
+      "description": "Permission to generate invoice"
+    }
+  },
+  {
+    "model": "modules.permission",
+    "pk": "c0000000-0000-0000-0000-000000000008",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "key": "record_payment",
+      "name": "Record Payment",
+      "description": "Permission to record payment"
+    }
   }
 ]

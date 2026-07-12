@@ -199,7 +199,11 @@ def _build_context(invoice) -> dict:
     # ── Job card reference ────────────────────────────────────────────────
     job_card_ref = ""
     if invoice.job_card_id:
-        job_card_ref = f"#{str(invoice.job_card_id).replace('-', '')[:8].upper()}"
+        try:
+            jc_number = invoice.job_card.jobcard_number if invoice.job_card else None
+            job_card_ref = jc_number or ""
+        except Exception:
+            pass
 
     # ── Vehicle ───────────────────────────────────────────────────────────
     vehicle_odo = (
@@ -263,6 +267,8 @@ def _build_context(invoice) -> dict:
         # Branding
         "logo_data_url":    _logo_data_url(invoice.tenant_id),
         "tenant_name":      invoice.tenant_name_snapshot or "AUTOCARE PRO",
+        "tenant_address_snapshot": invoice.tenant_address_snapshot or "",
+        "tenant_gstin_snapshot": invoice.tenant_gstin_snapshot or "",
         "accent_color":     accent_color,
         # Invoice meta
         "invoice_number":   invoice.invoice_number,
@@ -293,8 +299,14 @@ def _build_context(invoice) -> dict:
         "status_bg":        status_bg,
         "status_fg":        status_fg,
         "status_text":      status_text,
-        # Notes
+        # Notes and recommendations
         "notes":            invoice.notes or "",
+        "next_service_recommendation": getattr(invoice, "next_service_recommendation", "") or "",
+        # Signatures
+        "customer_signature": getattr(invoice, "customer_signature", "") or "",
+        "customer_signature_date": _fmt_date(getattr(invoice, "customer_signature_date", None)),
+        "admin_signature": getattr(invoice, "admin_signature", "") or "",
+        "admin_signature_date": _fmt_date(getattr(invoice, "admin_signature_date", None)),
     }
 
 
@@ -325,6 +337,9 @@ class InvoicePdfService:
         """
         Generate the invoice PDF, upload to storage, persist the key to the DB.
 
+        Uses Playwright to render the invoice preview HTML to PDF, ensuring
+        pixel-perfect consistency between web preview and PDF.
+
         Parameters
         ----------
         invoice : Invoice
@@ -338,11 +353,6 @@ class InvoicePdfService:
         str
             The storage key (relative LOCAL path or S3 object key).
         """
-        if not WEASYPRINT_AVAILABLE:
-            raise PdfNotAvailableError(
-                "weasyprint is not installed. Add it to requirements and restart."
-            )
-
         if invoice.pdf_key and not force:
             return invoice.pdf_key
 
@@ -357,11 +367,35 @@ class InvoicePdfService:
                 )
 
         try:
-            pdf_bytes = _render_pdf(invoice)
-        except PdfNotAvailableError:
-            raise
+            from apps.platform.invoices.pdf_generator import (
+                render_invoice_preview_html,
+                generate_invoice_pdf,
+            )
+            # Render the invoice preview HTML
+            html_content = render_invoice_preview_html(invoice)
+            logger.info("Using Playwright for PDF generation (invoice: %s)", invoice.invoice_number)
+            logger.debug("Rendered HTML length: %d chars, includes tenant_address: %s",
+                        len(html_content), 'tenant_address_snapshot' in html_content)
+            # Generate PDF using Playwright
+            pdf_bytes = generate_invoice_pdf(html_content)
+        except ImportError as ie:
+            logger.warning(
+                "Playwright not available (%s), falling back to WeasyPrint", str(ie)
+            )
+            if not WEASYPRINT_AVAILABLE:
+                raise PdfNotAvailableError(
+                    "weasyprint is not installed. Add it to requirements and restart."
+                )
+            try:
+                logger.info("Using WeasyPrint for PDF generation (invoice: %s)", invoice.invoice_number)
+                pdf_bytes = _render_pdf(invoice)
+            except PdfNotAvailableError:
+                raise
+            except Exception as exc:
+                logger.exception("PDF render failed for invoice %s", invoice.invoice_number)
+                raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
         except Exception as exc:
-            logger.exception("PDF render failed for invoice %s", invoice.invoice_number)
+            logger.exception("PDF generation failed for invoice %s", invoice.invoice_number)
             raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
 
         relative_key = _build_pdf_key(

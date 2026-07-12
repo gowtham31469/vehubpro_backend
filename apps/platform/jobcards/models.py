@@ -128,6 +128,11 @@ class JobCard(BaseModel):
     notes = models.TextField(null=True, blank=True)
     km_reading = models.PositiveIntegerField(null=True, blank=True)
     next_service_km = models.PositiveIntegerField(null=True, blank=True)
+    next_service_recommendation = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Recommended next service details; set when status changes to Job Completed.",
+    )
 
     class Meta:
         db_table = "job_cards"

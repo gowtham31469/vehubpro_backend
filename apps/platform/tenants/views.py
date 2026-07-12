@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.platform.tenants.models import Tenant, TenantBranding, TenantPII
 from apps.platform.tenants.permissions import IsSuperAdminRole
 from apps.platform.tenants.serializers import (
+    PublicTenantBrandingSerializer,
     TenantBrandingSerializer,
     TenantPIISerializer,
     TenantSerializer,
@@ -130,6 +131,9 @@ class TenantBrandingListCreateAPIView(APIView):
 
     def get(self, request):
         queryset = TenantBranding.objects.select_related("tenant").all()
+        tenant_id = request.query_params.get("tenant")
+        if tenant_id:
+            queryset = queryset.filter(tenant_id=tenant_id)
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -210,6 +214,9 @@ class TenantPIIListCreateAPIView(APIView):
 
     def get(self, request):
         queryset = TenantPII.objects.select_related("tenant").all()
+        tenant_id = request.query_params.get("tenant")
+        if tenant_id:
+            queryset = queryset.filter(tenant_id=tenant_id)
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -280,5 +287,72 @@ class TenantPIIDetailAPIView(APIView):
             code="TENANT_PII_DELETED",
             message="Tenant PII deleted successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class PublicTenantBrandingAPIView(APIView):
+    """
+    Public endpoint — no authentication required.
+
+    Accepts the subdomain portion of the tenant's domain (e.g. "chezhiyancars")
+    and returns safe branding fields (logo URL, primary colour, business name).
+
+    Domain matching: the DB stores full domains such as "chezhiyancars.vehubpro.com",
+    so we query domain__istartswith="<subdomain>." to reconstruct the match without
+    needing a hard-coded domain suffix setting.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, domain: str):
+        domain = domain.strip().lower()
+        if not domain:
+            return error_response(
+                request,
+                code="INVALID_DOMAIN",
+                message="Domain parameter is required.",
+                error="Missing domain.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant = (
+            Tenant.objects.filter(
+                domain__istartswith=f"{domain}.",
+                status="active",
+                is_archived=False,
+            )
+            .select_related("branding")
+            .first()
+        )
+
+        if tenant is None:
+            return error_response(
+                request,
+                code="TENANT_NOT_FOUND",
+                message="No active tenant found for the given domain.",
+                error="Tenant not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            branding = tenant.branding
+        except TenantBranding.DoesNotExist:
+            # Tenant exists but branding record hasn't been created yet — return safe defaults.
+            return success_response(
+                request,
+                code="DATA_RETRIEVED",
+                message="Tenant branding retrieved successfully.",
+                data={"logo_url": None, "primary_color": None, "business_name": tenant.name},
+                status_code=status.HTTP_200_OK,
+            )
+
+        serializer = PublicTenantBrandingSerializer(branding)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Tenant branding retrieved successfully.",
+            data=serializer.data,
             status_code=status.HTTP_200_OK,
         )

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: A4;
+            margin: 20mm 22mm 20mm 22mm;
+        }
+
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 12px;
+            color: #334155;
+            background: #ffffff;
+            line-height: 1.6;
+            display: grid;
+            grid-template-rows: 1fr auto;
+            min-height: 100vh;
+        }
+
+        /* Typography */
+        .brand-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.01em;
+        }
+
+        .inv-title {
+            font-size: 46px;
+            font-weight: 900;
+            color: {{ accent_color|safe }};
+            line-height: 1;
+            letter-spacing: -0.02em;
+            text-align: right;
+        }
+
+        .inv-number {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: right;
+            padding-top: 5px;
+        }
+
+        .meta-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding-bottom: 3px;
+        }
+
+        .meta-value {
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .sec-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding-bottom: 8px;
+            display: block;
+        }
+
+        .cust-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            padding-bottom: 5px;
+        }
+
+        .cust-detail {
+            font-size: 12px;
+            color: #64748b;
+            padding-bottom: 2px;
+        }
+
+        .veh-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding-bottom: 2px;
+        }
+
+        .veh-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .item-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .item-detail {
+            font-size: 11px;
+            color: #64748b;
+            font-style: italic;
+            padding-top: 3px;
+        }
+
+        .item-hsn {
+            font-size: 10px;
+            color: #94a3b8;
+            padding-top: 3px;
+        }
+
+        /* Layout */
+        .layout-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .layout-table td {
+            padding: 0;
+            vertical-align: top;
+        }
+
+        .hr-light {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 18px 0;
+        }
+
+        .hr-medium {
+            border: none;
+            border-top: 1px solid #cbd5e1;
+            margin: 18px 0;
+        }
+
+        /* Logo */
+        .brand-logo {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            vertical-align: middle;
+        }
+
+        /* Line Items Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .items-table th {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            padding: 9px 8px;
+            border-bottom: 1px solid #cbd5e1;
+            background-color: #f8fafc;
+            text-align: right;
+        }
+
+        .items-table th:first-child {
+            text-align: left;
+        }
+
+        .items-table td {
+            padding: 13px 8px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+            text-align: right;
+        }
+
+        .items-table td:first-child {
+            text-align: left;
+        }
+
+        .items-table .col-qty {
+            width: 11%;
+        }
+
+        .items-table .col-price {
+            width: 18%;
+        }
+
+        .items-table .col-amt {
+            width: 18%;
+        }
+
+        /* Totals */
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .totals-table td {
+            padding: 6px 12px;
+        }
+
+        .totals-spacer {
+            width: 55%;
+        }
+
+        .totals-inner {
+            width: 45%;
+            border-collapse: collapse;
+        }
+
+        .totals-inner td {
+            padding: 8px 8px;
+        }
+
+        .tot-label {
+            font-size: 12px;
+            color: #64748b;
+            text-align: right;
+        }
+
+        .tot-value {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: right;
+        }
+
+        .tot-due-lbl {
+            font-size: 15px;
+            font-weight: 800;
+            color: {{ accent_color|safe }};
+            text-align: right;
+        }
+
+        .tot-due-val {
+            font-size: 15px;
+            font-weight: 800;
+            color: {{ accent_color|safe }};
+            text-align: right;
+        }
+
+        .border-top-line {
+            border-top: 2px solid #e2e8f0;
+        }
+
+        /* Status Strip */
+        .status-strip {
+            margin-top: 24px;
+            padding: 16px 20px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .status-paid {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .status-partial {
+            background: #fffbeb;
+            color: #d97706;
+        }
+
+        .status-unpaid {
+            background: #fff1f2;
+            color: #e11d48;
+        }
+
+        /* Info Boxes */
+        .info-box {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 4px;
+        }
+
+        .notes-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+        }
+
+        .notes-lbl {
+            font-size: 9px;
+            font-weight: 700;
+            color: #0284c7;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            padding-bottom: 5px;
+        }
+
+        .notes-body {
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .recommendation-box {
+            margin-top: 20px;
+            padding: 16px 18px;
+            background: #fffbf0;
+            border-left: 4px solid #f59e0b;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .recommendation-lbl {
+            font-size: 7.5px;
+            font-weight: 900;
+            color: #d97706;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding-bottom: 8px;
+            display: block;
+        }
+
+        .recommendation-body {
+            font-size: 12px;
+            color: #44403c;
+            line-height: 1.5;
+        }
+
+        /* Signatures */
+        .signatures-section {
+            margin-top: 64px;
+            padding-top: 40px;
+            padding-bottom: 16px;
+            border-top: 2px solid #e5e7eb;
+        }
+
+        .signatures-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .signature-col {
+            width: 50%;
+            padding: 0 36px;
+            vertical-align: top;
+        }
+
+        .signature-label {
+            font-size: 10px;
+            font-weight: 900;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            padding-bottom: 96px;
+            display: block;
+        }
+
+        .signature-line {
+            border-top: 2px solid #1f2937;
+            height: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .signature-image {
+            max-width: 100%;
+            max-height: 80px;
+            object-fit: contain;
+        }
+
+        /* Footer */
+        .footer-section {
+            padding-top: 60px;
+            padding-bottom: 0;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .footer-main {
+            font-size: 12px;
+            color: #64748b;
+            padding-bottom: 6px;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+
+        .footer-faint {
+            font-size: 8px;
+            color: #94a3b8;
+        }
+
+        .footer-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            padding-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <table class="layout-table">
+        <tr>
+            <td style="width:50%; padding-right:16px;">
+                <div style="margin-bottom: 16px;">
+                    <span class="brand-name">{{ invoice.tenant_name_snapshot }}</span>
+                </div>
+                {% if invoice.tenant_address_snapshot %}
+                <div style="font-size: 11px; color: #64748b; line-height: 1.6; max-width: 300px;">
+                    {{ invoice.tenant_address_snapshot }}
+                </div>
+                {% endif %}
+                {% if invoice.tenant_gstin_snapshot %}
+                <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-top: 8px;">
+                    GSTIN: {{ invoice.tenant_gstin_snapshot }}
+                </div>
+                {% endif %}
+            </td>
+            <td style="width:50%; text-align:right;">
+                <div class="inv-title">INVOICE</div>
+                <div class="inv-number">#{{ invoice.invoice_number }}</div>
+                <br>
+                <table style="margin-left:auto; border-collapse:collapse;">
+                    <tr>
+                        <td style="padding-right:24px; text-align:left;">
+                            <div class="meta-label">DATE ISSUED</div>
+                            <div class="meta-value">
+                                {% if invoice.created_at %}
+                                    {{ invoice.created_at|date:"d b Y" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <hr class="hr-light">
+
+    <!-- Bill To & Vehicle Details -->
+    <table class="layout-table">
+        <tr>
+            <td style="width:48%; padding-right:20px; padding-bottom:10px;">
+                <span class="sec-label">Bill To</span>
+                {% if invoice.is_pii_erased %}
+                    <div class="cust-detail">[Customer data erased]</div>
+                {% else %}
+                    <div class="cust-name">{{ invoice.customer_name }}</div>
+                    {% if invoice.customer_phone %}<div class="cust-detail">{{ invoice.customer_phone }}</div>{% endif %}
+                    {% if invoice.customer_email %}<div class="cust-detail">{{ invoice.customer_email }}</div>{% endif %}
+                    {% if invoice.customer_address %}<div class="cust-detail">{{ invoice.customer_address }}</div>{% endif %}
+                {% endif %}
+            </td>
+            <td style="width:52%; padding-bottom:10px;">
+                <span class="sec-label">Vehicle Details</span>
+                <table style="width:100%; border-collapse:collapse;">
+                    <tr>
+                        <td style="width:50%; padding-bottom:12px; padding-right:8px; vertical-align:top;">
+                            <div class="veh-label">Make / Model</div>
+                            <div class="veh-value">{{ invoice.vehicle_label_snapshot }}</div>
+                        </td>
+                        <td style="width:50%; padding-bottom:12px; vertical-align:top;">
+                            <div class="veh-label">License Plate</div>
+                            <div class="veh-value">{{ invoice.vehicle_registration_no_snapshot }}</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-right:8px; vertical-align:top;">
+                            <div class="veh-label">VIN</div>
+                            <div class="veh-value">{{ invoice.vehicle_vin_snapshot }}</div>
+                        </td>
+                        <td style="vertical-align:top;">
+                            <div class="veh-label">Odometer</div>
+                            <div class="veh-value">
+                                {% if invoice.vehicle_odometer_snapshot %}
+                                    {{ invoice.vehicle_odometer_snapshot|floatformat:0 }} km
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <hr class="hr-medium">
+
+    <!-- Line Items -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th class="col-qty">Qty / Hrs</th>
+                <th class="col-price">Unit Price</th>
+                <th class="col-amt">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in invoice.line_items %}
+            <tr>
+                <td>
+                    <div class="item-name">{{ line.description }}</div>
+                    {% if line.detail_text %}<div class="item-detail">{{ line.detail_text }}</div>{% endif %}
+                    {% if line.hsn_sac_code %}<div class="item-hsn">HSN/SAC: {{ line.hsn_sac_code }}</div>{% endif %}
+                </td>
+                <td>{{ line.quantity|floatformat:2 }}</td>
+                <td>₹{{ line.unit_price|floatformat:2 }}</td>
+                <td><strong>₹{{ line.line_total|floatformat:2 }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totals -->
+    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <tr>
+            <td style="width:52%;"></td>
+            <td style="width:48%;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <tr>
+                        <td class="tot-label" style="padding:5px 8px 5px 0;">Subtotal</td>
+                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ invoice.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% if invoice.discount_amount > 0 %}
+                    <tr>
+                        <td class="tot-label" style="padding:5px 8px 5px 0;">Discount</td>
+                        <td class="tot-value" style="padding:5px 0 5px 8px; color:#be123c;">−₹{{ invoice.discount_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if total_gst > 0 %}
+                    <tr>
+                        <td class="tot-label" style="padding:5px 8px 5px 0;">{{ gst_label }}</td>
+                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ total_gst|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if invoice.shop_fees > 0 %}
+                    <tr>
+                        <td class="tot-label" style="padding:5px 8px 5px 0;">Shop fees</td>
+                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ invoice.shop_fees|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="tot-due-lbl" style="padding:10px 8px 6px 0; border-top:1px solid #cbd5e1;">TOTAL DUE</td>
+                        <td class="tot-due-val" style="padding:10px 0 6px 8px; border-top:1px solid #cbd5e1;">₹{{ invoice.total_amount|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Status -->
+    <div class="status-strip {% if is_paid %}status-paid{% elif is_partial %}status-partial{% else %}status-unpaid{% endif %}">
+        {% if is_paid %}
+            ✓ Status: Fully Paid
+        {% elif is_partial %}
+            ◐ Status: Partially Paid · Balance ₹{{ balance|floatformat:2 }}
+        {% else %}
+            ○ Status: Unpaid
+        {% endif %}
+    </div>
+
+    <!-- Recommendation -->
+    {% if invoice.next_service_recommendation %}
+    <div class="recommendation-box">
+        <div class="recommendation-lbl">💡 Next Service Recommendation</div>
+        <div class="recommendation-body">{{ invoice.next_service_recommendation }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Signatures -->
+    {% if invoice.customer_signature or invoice.admin_signature %}
+    <div class="signatures-section">
+        <table class="signatures-grid">
+            <tr>
+                <td class="signature-col">
+                    <div class="signature-label">Customer Signature</div>
+                    <div class="signature-line">
+                        {% if invoice.customer_signature %}
+                            <img class="signature-image" src="{{ invoice.customer_signature }}" alt="Customer Signature">
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="signature-col">
+                    <div class="signature-label">Authorized By</div>
+                    <div class="signature-line">
+                        {% if invoice.admin_signature %}
+                            <img class="signature-image" src="{{ invoice.admin_signature }}" alt="Admin Signature">
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-section">
+        <p class="footer-main">Thank you for your business! We appreciate the opportunity to service your vehicle.</p>
+        {% if invoice.customer_signature or invoice.admin_signature %}
+            <p class="footer-sub">✓ Signatures have been recorded.</p>
+        {% else %}
+            <p class="footer-sub">This is a computer-generated invoice and does not require a signature.</p>
+        {% endif %}
+        {% if invoice.is_pii_erased %}
+            <p class="footer-faint" style="padding-top:6px;">Customer identity data removed per data protection request.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

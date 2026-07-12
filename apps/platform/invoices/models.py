@@ -161,6 +161,13 @@ class Invoice(BaseModel):
 
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = models.TextField(blank=True, default="")
+    next_service_recommendation = models.TextField(blank=True, default="")
+
+    # ── Signatures ────────────────────────────────────────────────────────────
+    customer_signature = models.TextField(null=True, blank=True, help_text="Base64-encoded customer signature image")
+    customer_signature_date = models.DateTimeField(null=True, blank=True)
+    admin_signature = models.TextField(null=True, blank=True, help_text="Base64-encoded admin/owner signature image")
+    admin_signature_date = models.DateTimeField(null=True, blank=True)
 
     # ── PDF storage ───────────────────────────────────────────────────────────
     # Relative MEDIA_ROOT path (LOCAL) or S3 object key. Mirrors the same

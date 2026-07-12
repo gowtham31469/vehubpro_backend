@@ -27,6 +27,45 @@ def _is_archive_flag(request):
     return str(value).strip().lower() in {"true", "1", "yes"}
 
 
+def _snapshot_to_history(subscription, change_reason: str) -> None:
+    """Copy the current subscription state into SubscriptionHistory before a change."""
+    SubscriptionHistory.objects.create(
+        tenant=subscription.tenant,
+        plan=subscription.plan,
+        start_date=subscription.start_date,
+        end_date=subscription.end_date,
+        billing_cycle=subscription.billing_cycle,
+        price=subscription.price,
+        max_users=subscription.max_users,
+        max_vehicles=subscription.max_vehicles,
+        change_reason=change_reason,
+    )
+
+
+def _create_ledger_entry(subscription, event_type: str, user) -> "SubscriptionLedger":
+    """Create a ledger entry and link it to the subscription."""
+    ledger = SubscriptionLedger.objects.create(
+        tenant=subscription.tenant,
+        event_type=event_type,
+        payload={
+            "subscription_id": str(subscription.id),
+            "plan_id": str(subscription.plan_id) if subscription.plan_id else None,
+            "billing_cycle": subscription.billing_cycle,
+            "price": str(subscription.price),
+            "status": subscription.status,
+            "start_date": str(subscription.start_date),
+            "end_date": str(subscription.end_date) if subscription.end_date else None,
+            "max_users": subscription.max_users,
+            "max_vehicles": subscription.max_vehicles,
+        },
+        effective_at=timezone.now(),
+        created_by=user if getattr(user, "is_authenticated", False) else None,
+    )
+    subscription.ledger_entry = ledger
+    subscription.save(update_fields=["ledger_entry", "updated_at"])
+    return ledger
+
+
 class PlanListCreateAPIView(APIView):
     permission_classes = [IsSuperAdminRole]
 
@@ -115,6 +154,9 @@ class TenantSubscriptionListCreateAPIView(APIView):
         queryset = TenantSubscription.objects.select_related("tenant", "plan", "ledger_entry").filter(
             is_archived=_is_archive_flag(request)
         )
+        tenant_id = request.query_params.get("tenant")
+        if tenant_id:
+            queryset = queryset.filter(tenant_id=tenant_id)
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -128,22 +170,11 @@ class TenantSubscriptionListCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         subscription = serializer.save(ledger_entry=None)
 
-        ledger = SubscriptionLedger.objects.create(
-            tenant=subscription.tenant,
-            event_type="CONTRACT_STARTED",
-            payload={
-                "subscription_id": str(subscription.id),
-                "plan_id": str(subscription.plan_id) if subscription.plan_id else None,
-                "billing_cycle": subscription.billing_cycle,
-                "price": str(subscription.price),
-                "status": subscription.status,
-                "source": "api_create_subscription",
-            },
-            effective_at=timezone.now(),
-            created_by=request.user if getattr(request.user, "is_authenticated", False) else None,
-        )
-        subscription.ledger_entry = ledger
-        subscription.save(update_fields=["ledger_entry", "updated_at"])
+        _create_ledger_entry(subscription, "CONTRACT_STARTED", request.user)
+
+        # Initial history snapshot so the starting state is always recorded
+        _snapshot_to_history(subscription, "Initial contract started")
+
         response_serializer = TenantSubscriptionSerializer(subscription)
         return success_response(
             request,
@@ -181,31 +212,48 @@ class TenantSubscriptionDetailAPIView(APIView):
             status_code=status.HTTP_200_OK,
         )
 
-    def put(self, request, pk):
+    def _update_subscription(self, request, pk, partial=False):
         subscription = self.get_object(request, pk)
-        serializer = TenantSubscriptionSerializer(subscription, data=request.data)
+
+        # Determine change reason before we overwrite the fields
+        old_plan_id = str(subscription.plan_id) if subscription.plan_id else None
+        new_plan_id = str(request.data.get("plan", old_plan_id or ""))
+        new_status  = request.data.get("status", subscription.status)
+
+        if new_status == "cancelled":
+            event_type    = "CONTRACT_CANCELLED"
+            change_reason = "Subscription cancelled"
+        elif old_plan_id and new_plan_id and new_plan_id != old_plan_id:
+            event_type    = "CONTRACT_RENEWED"
+            change_reason = f"Plan changed from {old_plan_id} to {new_plan_id}"
+        else:
+            event_type    = "CONTRACT_RENEWED"
+            change_reason = "Subscription details updated"
+
+        # Snapshot the current state BEFORE applying changes
+        _snapshot_to_history(subscription, change_reason)
+
+        serializer = TenantSubscriptionSerializer(subscription, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        # Refresh from DB so ledger payload reflects the saved state
+        subscription.refresh_from_db()
+        _create_ledger_entry(subscription, event_type, request.user)
+
         return success_response(
             request,
             code="SUBSCRIPTION_UPDATED",
             message="Tenant subscription updated successfully.",
-            data=serializer.data,
+            data=TenantSubscriptionSerializer(subscription).data,
             status_code=status.HTTP_200_OK,
         )
 
+    def put(self, request, pk):
+        return self._update_subscription(request, pk, partial=False)
+
     def patch(self, request, pk):
-        subscription = self.get_object(request, pk)
-        serializer = TenantSubscriptionSerializer(subscription, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return success_response(
-            request,
-            code="SUBSCRIPTION_UPDATED",
-            message="Tenant subscription updated successfully.",
-            data=serializer.data,
-            status_code=status.HTTP_200_OK,
-        )
+        return self._update_subscription(request, pk, partial=True)
 
     def delete(self, request, pk):
         self.get_object(request, pk).archive()

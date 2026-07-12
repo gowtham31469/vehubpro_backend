@@ -126,5 +126,55 @@
       "is_active": true,
       "created_by": null
     }
+  },
+
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000009",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000001",
+      "key": "dashboard",
+      "name": "Dashboard",
+      "description": "Main dashboard with KPIs and activity feed",
+      "is_active": true,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000010",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000002",
+      "key": "user_management_staff",
+      "name": "User Management",
+      "description": "Create and manage workshop staff accounts",
+      "is_active": true,
+      "created_by": null
+    }
+  },
+
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000011",
+    "fields": {
+      "created_at": "2026-02-02T10:00:00Z",
+      "updated_at": "2026-02-02T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000005",
+      "key": "configuration",
+      "name": "Configuration",
+      "description": "Business name, timezone, currency, and language",
+      "is_active": true,
+      "created_by": null
+    }
   }
 ]

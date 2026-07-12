@@ -19,6 +19,19 @@
     background: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Sticky-footer flex wrapper ────────────────────────────────────────── */
+  /* A4 usable height = 297mm − 20mm top − 20mm bottom = 257mm              */
+  .page-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 257mm;
+  }
+  .content-area {
+    flex: 1 0 auto;
   }
 
   /* ── Typography ────────────────────────────────────────────────────────── */
@@ -40,8 +53,6 @@
   .tot-value    { font-size: 12px; font-weight: 700; color: #0f172a; text-align: right; }
   .tot-due-lbl  { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
   .tot-due-val  { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
-  .footer-main  { font-size: 10px; color: #94a3b8; text-align: center; padding-bottom: 3px; }
-  .footer-faint { font-size: 10px; color: #cbd5e1;  text-align: center; }
 
   /* ── Layout Tables ─────────────────────────────────────────────────────── */
   .layout-table { width: 100%; border-collapse: collapse; }
@@ -83,17 +94,6 @@
   .totals-inner td { padding: 5px 4px; }
   .border-top-line { border-top: 1px solid #cbd5e1; }
 
-  /* ── Status Strip ──────────────────────────────────────────────────────── */
-  .status-strip {
-    margin-top: 18px;
-    padding: 10px 16px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    border-radius: 4px;
-  }
-
   /* ── Notes ─────────────────────────────────────────────────────────────── */
   .notes-box {
     margin-top: 14px;
@@ -104,10 +104,148 @@
   }
   .notes-lbl  { font-size: 9px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.09em; padding-bottom: 5px; }
   .notes-body { font-size: 12px; color: #334155; }
+
+  /* ── Next Service Recommendation ──────────────────────────────────────── */
+  .rec-section {
+    margin-top: 24px;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .rec-header {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-bottom: 1px solid #fde68a;
+    padding: 10px 16px;
+    display: table;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .rec-header-icon {
+    display: table-cell;
+    width: 28px;
+    vertical-align: middle;
+  }
+  .rec-icon-circle {
+    width: 24px;
+    height: 24px;
+    background: #f59e0b;
+    border-radius: 50%;
+    display: inline-block;
+    text-align: center;
+    line-height: 24px;
+    font-size: 13px;
+  }
+  .rec-header-text {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .rec-eyebrow {
+    font-size: 8px;
+    font-weight: 900;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    display: block;
+  }
+  .rec-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #78350f;
+    margin-top: 1px;
+    display: block;
+  }
+  .rec-body {
+    background: #fffdf5;
+    padding: 14px 16px 14px 44px;
+  }
+  .rec-text {
+    font-size: 12px;
+    color: #44403c;
+    line-height: 1.7;
+  }
+  .rec-footer {
+    background: #fef9ec;
+    border-top: 1px solid #fde68a;
+    padding: 7px 16px;
+    font-size: 9px;
+    color: #a16207;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Page footer — sticky to bottom via flex, kept together ────────────── */
+  .page-footer {
+    flex-shrink: 0;
+    margin-top: 32px;
+    border-top: 2px solid #e2e8f0;
+    padding-top: 20px;
+    page-break-inside: avoid;
+  }
+
+  /* ── Status badge ──────────────────────────────────────────────────────── */
+  .status-badge {
+    display: table;
+    margin: 0 auto 20px;
+    padding: 8px 28px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── Signature grid ────────────────────────────────────────────────────── */
+  .sig-grid {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 12px 0;
+    margin-bottom: 20px;
+  }
+  .sig-cell {
+    width: 50%;
+    vertical-align: top;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .sig-label-bar {
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 7px 14px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+  .sig-space {
+    height: 72px;
+    padding: 10px 14px 0;
+    text-align: center;
+    vertical-align: bottom;
+  }
+  .sig-img {
+    max-width: 100%;
+    max-height: 56px;
+    object-fit: contain;
+  }
+  .sig-date {
+    font-size: 8px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 4px 14px 8px;
+    display: none;
+  }
+
+  /* ── Footer text ───────────────────────────────────────────────────────── */
+  .footer-tagline   { font-size: 11px; color: #64748b; text-align: center; font-weight: 500; line-height: 1.6; padding-bottom: 4px; }
+  .footer-disclaimer{ font-size: 9px;  color: #94a3b8; text-align: center; padding-top: 2px; }
+  .footer-erased    { font-size: 8px;  color: #94a3b8; text-align: center; padding-top: 6px; }
 </style>
 </head>
 <body>
-
+<div class="page-wrapper">
+<div class="content-area">
 <!-- ══════════════════════════════════════════════════════════════════════════
      HEADER: Logo + Company Name (left) | INVOICE title + meta (right)
 ═══════════════════════════════════════════════════════════════════════════ -->
@@ -117,6 +255,16 @@
     <td style="width:50%; padding-right:16px;">
       {% if logo_data_url %}
       <img class="brand-logo" src="{{ logo_data_url }}" alt="Logo">&nbsp;&nbsp;{% endif %}<span class="brand-name">{{ tenant_name }}</span>
+      {% if tenant_address_snapshot %}
+      <div style="font-size: 11px; color: #64748b; line-height: 1.6; max-width: 300px; margin-top: 8px;">
+        {{ tenant_address_snapshot }}
+      </div>
+      {% endif %}
+      {% if tenant_gstin_snapshot %}
+      <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-top: 8px;">
+        GSTIN: {{ tenant_gstin_snapshot }}
+      </div>
+      {% endif %}
     </td>
 
     <!-- RIGHT: INVOICE title, number, meta -->
@@ -269,13 +417,6 @@
   </tr>
 </table>
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     PAYMENT STATUS STRIP
-═══════════════════════════════════════════════════════════════════════════ -->
-<div class="status-strip" style="background:{{ status_bg|safe }}; color:{{ status_fg|safe }};">
-  {{ status_text }}
-</div>
-
 {% if notes %}
 <!-- ══════════════════════════════════════════════════════════════════════════
      TECHNICIAN NOTES
@@ -286,16 +427,90 @@
 </div>
 {% endif %}
 
+{% if next_service_recommendation %}
 <!-- ══════════════════════════════════════════════════════════════════════════
-     FOOTER
+     NEXT SERVICE RECOMMENDATION
 ═══════════════════════════════════════════════════════════════════════════ -->
-<div style="margin-top:28px; padding-top:14px; border-top:1px solid #e2e8f0; text-align:center;">
-  <p class="footer-main">Thank you for your business! We appreciate the opportunity to service your vehicle.</p>
-  <p class="footer-faint" style="padding-top:3px;">This is a computer-generated invoice and does not require a signature.</p>
-  {% if is_pii_erased %}
-  <p class="footer-faint" style="padding-top:3px;">Customer identity data removed per data protection request.</p>
-  {% endif %}
+<div class="rec-section">
+
+  <!-- Header bar -->
+  <div class="rec-header">
+    <div class="rec-header-icon">
+      <span class="rec-icon-circle">&#9874;</span>
+    </div>
+    <div class="rec-header-text">
+      <span class="rec-eyebrow">Service Advisory</span>
+      <span class="rec-title">Next Service Recommendation</span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="rec-body">
+    <div class="rec-text">{{ next_service_recommendation }}</div>
+  </div>
+
+  <!-- Footer note -->
+  <div class="rec-footer">
+    &#9432;&nbsp;&nbsp;This recommendation is based on the current vehicle condition observed during this service visit.
+  </div>
+
 </div>
+{% endif %}
+
+</div><!-- /content-area -->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PAGE FOOTER — status badge + signatures + tagline
+     Stays at bottom via flex; page-break-inside keeps it together
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page-footer">
+
+  <!-- Status badge — centered pill -->
+  <div class="status-badge" style="background:{{ status_bg|safe }}; color:{{ status_fg|safe }};">
+    {{ status_text }}
+  </div>
+
+  <!-- Signature grid -->
+  <table class="sig-grid">
+    <tr>
+      <td class="sig-cell">
+        <div class="sig-label-bar">Customer Signature</div>
+        <div class="sig-space">
+          {% if customer_signature %}
+          <img class="sig-img" src="{{ customer_signature }}" alt="Customer Signature">
+          {% endif %}
+        </div>
+        {% if customer_signature_date %}
+        <div class="sig-date" style="display:block;">{{ customer_signature_date }}</div>
+        {% endif %}
+      </td>
+      <td class="sig-cell">
+        <div class="sig-label-bar">Authorized Signatory</div>
+        <div class="sig-space">
+          {% if admin_signature %}
+          <img class="sig-img" src="{{ admin_signature }}" alt="Authorized Signature">
+          {% endif %}
+        </div>
+        {% if admin_signature_date %}
+        <div class="sig-date" style="display:block;">{{ admin_signature_date }}</div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <!-- Tagline & disclaimer -->
+  <p class="footer-tagline">Thank you for your business — we appreciate the opportunity to service your vehicle.</p>
+  {% if customer_signature or admin_signature %}
+  <p class="footer-disclaimer">✓ Digital signatures have been recorded on this invoice.</p>
+  {% else %}
+  <p class="footer-disclaimer">This is a computer-generated invoice. Authorised signatures required for validation.</p>
+  {% endif %}
+  {% if is_pii_erased %}
+  <p class="footer-erased">Customer identity data removed per data protection request.</p>
+  {% endif %}
+
+</div><!-- /page-footer -->
+</div><!-- /page-wrapper -->
 
 </body>
 </html>

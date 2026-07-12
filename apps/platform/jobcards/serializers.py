@@ -161,6 +161,7 @@ class JobCardSerializer(serializers.ModelSerializer):
             "notes",
             "km_reading",
             "next_service_km",
+            "next_service_recommendation",
             "created_at",
             "updated_at",
         ]

@@ -36,12 +36,19 @@ class LoginView(APIView):
         for key, value in claims.items():
             refresh[key] = value
 
+        full_name = ""
+        try:
+            full_name = user.pii.get_full_name() or ""
+        except Exception:
+            pass
+
         response_data = {
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": {
                 "id": str(user.id),
                 "email": email,
+                "full_name": full_name,
                 **claims,
             },
         }

@@ -64,10 +64,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "core.urls"
 
+SUPERADMIN_DIST = BASE_DIR.parent / "superadmin" / "dist"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [SUPERADMIN_DIST],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -132,7 +134,12 @@ AUTH_USER_MODEL = "users.User"
 
 INSTALLED_APPS += ["corsheaders"]
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://127.0.0.1:5173"])
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+])
 CORS_ALLOW_CREDENTIALS = True
 
 LOGGING = get_logging_config(BASE_DIR, env("LOG_LEVEL", default="INFO"))
