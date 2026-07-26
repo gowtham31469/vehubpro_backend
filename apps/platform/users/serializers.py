@@ -2,7 +2,9 @@ from rest_framework import serializers
 from django.db import transaction
 from apps.platform.users.models import User, UserPII
 from apps.platform.masters.models import Role
-from apps.platform.modules.models import UserSubmodulePermission, SubmodulePermission
+from apps.platform.modules.models import (
+    TenantModule, Submodule, SubmodulePermission, UserSubmodulePermission,
+)
 from core.audit.service import log_audit_event
 from core.audit.constants import AuditAction, AuditModule
 
@@ -45,15 +47,17 @@ class TenantAdminSerializer(serializers.ModelSerializer):
         email = validated_data.pop("email")
         phone = validated_data.pop("phone", "")
         password = validated_data.pop("password", None)
-        permission_ids = validated_data.pop("permissions", [])
-        
+        # Explicit permission selection is not used on create: every permission
+        # for the tenant's assigned modules is granted automatically below.
+        validated_data.pop("permissions", None)
+
         # Ensure role is ADMIN if not provided
         if not validated_data.get("role"):
             role = Role.objects.get(code="ADMIN")
             validated_data["role"] = role
 
         user = User.objects.create_user(password=password, **validated_data)
-        
+
         pii = UserPII(user=user)
         pii.set_full_name(full_name)
         pii.set_email(email)
@@ -61,19 +65,38 @@ class TenantAdminSerializer(serializers.ModelSerializer):
             pii.set_phone(phone)
         pii.save()
 
-        # Assign submodule permissions
-        if permission_ids:
-            perms_to_create = [
-                UserSubmodulePermission(
-                    user=user,
-                    tenant=user.tenant,
-                    submodule_permission_id=pid,
-                )
-                for pid in permission_ids
-            ]
-            UserSubmodulePermission.objects.bulk_create(perms_to_create)
-        
+        self._grant_all_tenant_module_permissions(user)
+
         return user
+
+    def _grant_all_tenant_module_permissions(self, user):
+        """
+        Grant the newly created tenant admin every submodule permission
+        available under the modules assigned to their tenant.
+        """
+        if not user.tenant_id:
+            return
+
+        module_ids = TenantModule.objects.filter(
+            tenant_id=user.tenant_id
+        ).values_list("module_id", flat=True)
+
+        submodule_ids = Submodule.objects.filter(
+            module_id__in=module_ids, is_archived=False
+        ).values_list("id", flat=True)
+
+        submodule_permission_ids = SubmodulePermission.objects.filter(
+            submodule_id__in=submodule_ids
+        ).values_list("id", flat=True)
+
+        UserSubmodulePermission.objects.bulk_create([
+            UserSubmodulePermission(
+                user=user,
+                tenant_id=user.tenant_id,
+                submodule_permission_id=spid,
+            )
+            for spid in submodule_permission_ids
+        ])
 
     @transaction.atomic
     def update(self, instance, validated_data):

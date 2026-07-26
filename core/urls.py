@@ -2,9 +2,24 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.template import TemplateDoesNotExist
 from django.urls import include, path, re_path
-from django.views.generic import TemplateView
 from django.views.static import serve
+
+
+def serve_spa_or_health(request, *args, **kwargs):
+    """
+    Serve the superadmin SPA's index.html when it's been built and deployed
+    alongside this backend. On API-only deployments (no superadmin/dist
+    present) this falls back to a plain health response instead of 500ing.
+    """
+    try:
+        return render(request, "index.html")
+    except TemplateDoesNotExist:
+        return JsonResponse({"status": "ok", "service": "vehubpro-api"})
+
 
 # Media files must come before the SPA catch-all to avoid TemplateDoesNotExist
 urlpatterns = static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
@@ -27,5 +42,6 @@ urlpatterns += [
     # Superadmin SPA static assets (Vite build output)
     re_path(r"^assets/(?P<path>.*)$", serve, {"document_root": settings.SUPERADMIN_DIST / "assets"}),
     # Catch-all: serve superadmin index.html for all non-API, non-admin, non-media routes
-    re_path(r"^(?!api/|admin/|media/).*$", TemplateView.as_view(template_name="index.html")),
+    # (falls back to a plain health response if the SPA hasn't been built/deployed here)
+    re_path(r"^(?!api/|admin/|media/).*$", serve_spa_or_health),
 ]
