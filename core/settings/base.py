@@ -1,6 +1,7 @@
 """Base Django settings shared by all environments."""
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -139,6 +140,14 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+])
+# Each tenant gets its own subdomain (e.g. https://mrcars.vehubpro.com) that must be
+# allowed to call the shared API subdomain. A static CORS_ALLOWED_ORIGINS list would
+# require a manual update + redeploy for every new tenant, so any subdomain of
+# TENANT_DOMAIN_SUFFIX is allowed via regex instead.
+TENANT_DOMAIN_SUFFIX = env.str("TENANT_DOMAIN_SUFFIX", default="vehubpro.com")
+CORS_ALLOWED_ORIGIN_REGEXES = env.list("CORS_ALLOWED_ORIGIN_REGEXES", default=[
+    rf"^https://([a-z0-9-]+\.)?{re.escape(TENANT_DOMAIN_SUFFIX)}$",
 ])
 CORS_ALLOW_CREDENTIALS = True
 
