@@ -2,7 +2,7 @@ import logging
 
 from rest_framework import serializers
 
-from apps.platform.tenants.models import Tenant, TenantBranding, TenantPII
+from apps.platform.tenants.models import Tenant, TenantBranding, TenantInvoiceSettings, TenantPII
 from core.storage import (
     StorageError,
     StorageValidationError,
@@ -271,6 +271,103 @@ class TenantPIISerializer(serializers.ModelSerializer):
             instance.set_email(email)
         if phone is not None:
             instance.set_phone(phone)
+        instance.save()
+        return instance
+
+
+class TenantInvoiceSettingsSerializer(serializers.ModelSerializer):
+    """Bank details use write-only plaintext + *_value read fields, mirroring TenantPIISerializer.
+    QR code uses a write-only upload field, mirroring TenantBrandingSerializer."""
+
+    account_number = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    account_number_value = serializers.SerializerMethodField(read_only=True)
+
+    qr_code_file = serializers.FileField(write_only=True, required=False, allow_null=True)
+    qr_code_url = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = TenantInvoiceSettings
+        fields = [
+            "id",
+            "tenant",
+            "account_holder_name",
+            "account_number",
+            "account_number_value",
+            "account_type",
+            "ifsc_code",
+            "bank_name",
+            "branch_name",
+            "upi_id",
+            "qr_code",
+            "qr_code_file",
+            "qr_code_url",
+            "terms_and_conditions",
+            "currency_symbol",
+            "advance_payment_percentage",
+            "estimate_charge_percentage",
+            "replaced_parts_retention_days",
+            "service_warranty_days",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "qr_code",
+            "account_number_value",
+            "qr_code_url",
+        ]
+
+    def get_account_number_value(self, obj):
+        try:
+            return obj.get_account_number()
+        except Exception:
+            return None
+
+    def get_qr_code_url(self, obj):
+        return _resolve_branding_url(obj.qr_code)
+
+    def _upload_qr_code(self, instance, uploaded) -> None:
+        if uploaded is None:
+            return
+        old_ref = instance.qr_code
+        try:
+            ref = upload_branding_asset(
+                uploaded,
+                tenant_id=str(instance.tenant_id),
+                asset_kind="qr_code",
+            )
+        except StorageValidationError as exc:
+            raise serializers.ValidationError({"qr_code_file": str(exc)}) from exc
+        except StorageError as exc:
+            logger.exception("QR code upload failed for tenant %s", instance.tenant_id)
+            raise serializers.ValidationError({"qr_code_file": str(exc)}) from exc
+        instance.qr_code = ref
+        delete_stored_media(old_ref)
+
+    def create(self, validated_data):
+        account_number = validated_data.pop("account_number", None)
+        qr_code_file = validated_data.pop("qr_code_file", None)
+
+        instance = TenantInvoiceSettings.objects.create(**validated_data)
+        if account_number is not None:
+            instance.set_account_number(account_number)
+        if qr_code_file is not None:
+            self._upload_qr_code(instance, qr_code_file)
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        account_number = validated_data.pop("account_number", None)
+        qr_code_file = validated_data.pop("qr_code_file", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if account_number is not None:
+            instance.set_account_number(account_number)
+        if qr_code_file is not None:
+            self._upload_qr_code(instance, qr_code_file)
         instance.save()
         return instance
 

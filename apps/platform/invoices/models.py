@@ -140,6 +140,10 @@ class Invoice(BaseModel):
     vehicle_label_snapshot = models.CharField(max_length=255, blank=True, default="")
     vehicle_vin_snapshot = models.CharField(max_length=17, blank=True, default="")
     vehicle_odometer_snapshot = models.PositiveIntegerField(null=True, blank=True)
+    vehicle_brand_snapshot = models.CharField(max_length=100, blank=True, default="")
+    vehicle_model_snapshot = models.CharField(max_length=100, blank=True, default="")
+    vehicle_engine_no_snapshot = models.CharField(max_length=50, blank=True, default="")
+    vehicle_year_snapshot = models.SmallIntegerField(null=True, blank=True)
 
     # ── Financial totals (IMMUTABLE after issuance — GST statutory) ───────────
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -254,12 +258,20 @@ class InvoiceLineItem(BaseModel):
     Immutable after creation — never update, never delete for GST compliance.
     """
 
+    SERVICE_TYPE_PART = "part"
+    SERVICE_TYPE_LABOUR = "labour"
+    SERVICE_TYPE_CHOICES = [
+        (SERVICE_TYPE_PART, "Part"),
+        (SERVICE_TYPE_LABOUR, "Labour"),
+    ]
+
     invoice = models.ForeignKey(
         "invoices.Invoice",
         on_delete=models.PROTECT,
         related_name="line_items",
     )
     sort_order = models.PositiveSmallIntegerField(default=0)
+    service_type = models.CharField(max_length=10, choices=SERVICE_TYPE_CHOICES, default=SERVICE_TYPE_LABOUR)
     description = models.CharField(max_length=500)
     detail_text = models.CharField(max_length=500, blank=True, default="")
     hsn_sac_code = models.CharField(max_length=20, blank=True, default="")
@@ -267,6 +279,8 @@ class InvoiceLineItem(BaseModel):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:

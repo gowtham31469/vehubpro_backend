@@ -4,11 +4,12 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.platform.tenants.models import Tenant, TenantBranding, TenantPII
+from apps.platform.tenants.models import Tenant, TenantBranding, TenantInvoiceSettings, TenantPII
 from apps.platform.tenants.permissions import IsSuperAdminRole
 from apps.platform.tenants.serializers import (
     PublicTenantBrandingSerializer,
     TenantBrandingSerializer,
+    TenantInvoiceSettingsSerializer,
     TenantPIISerializer,
     TenantSerializer,
 )
@@ -287,6 +288,148 @@ class TenantPIIDetailAPIView(APIView):
             code="TENANT_PII_DELETED",
             message="Tenant PII deleted successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class TenantInvoiceSettingsListCreateAPIView(APIView):
+    permission_classes = [IsSuperAdminRole]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get(self, request):
+        queryset = TenantInvoiceSettings.objects.select_related("tenant").all()
+        tenant_id = request.query_params.get("tenant")
+        if tenant_id:
+            queryset = queryset.filter(tenant_id=tenant_id)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Tenant invoice settings retrieved successfully.",
+            data=build_paginated_data(request, queryset, TenantInvoiceSettingsSerializer),
+            status_code=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = TenantInvoiceSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="TENANT_INVOICE_SETTINGS_CREATED",
+            message="Tenant invoice settings created successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class TenantInvoiceSettingsDetailAPIView(APIView):
+    permission_classes = [IsSuperAdminRole]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_object(self, pk):
+        return get_object_or_404(TenantInvoiceSettings, pk=pk)
+
+    def get(self, request, pk):
+        serializer = TenantInvoiceSettingsSerializer(self.get_object(pk))
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Tenant invoice settings retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def put(self, request, pk):
+        instance = self.get_object(pk)
+        serializer = TenantInvoiceSettingsSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="TENANT_INVOICE_SETTINGS_UPDATED",
+            message="Tenant invoice settings updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, pk):
+        instance = self.get_object(pk)
+        serializer = TenantInvoiceSettingsSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="TENANT_INVOICE_SETTINGS_UPDATED",
+            message="Tenant invoice settings updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk):
+        self.get_object(pk).delete()
+        return success_response(
+            request,
+            code="TENANT_INVOICE_SETTINGS_DELETED",
+            message="Tenant invoice settings deleted successfully.",
+            data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class TenantInvoiceSettingsByTokenAPIView(APIView):
+    """
+    Self-service invoice settings (bank details, UPI QR, terms & conditions) for the
+    authenticated tenant's own staff — surfaced in the tenant portal's Configuration page.
+    Unlike the superadmin CRUD views above, this is scoped entirely by the caller's JWT
+    tenant_id and get-or-creates the singleton row so the frontend never has to juggle
+    create-vs-update.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def _tenant_id(self, request):
+        return getattr(request.user, "tenant_id", None)
+
+    def get(self, request):
+        tenant_id = self._tenant_id(request)
+        if not tenant_id:
+            return error_response(
+                request,
+                code="TENANT_CONTEXT_MISSING",
+                message="Authenticated user is not mapped to a tenant.",
+                error="Tenant association is required for this endpoint.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        instance, _ = TenantInvoiceSettings.objects.get_or_create(tenant_id=tenant_id)
+        serializer = TenantInvoiceSettingsSerializer(instance)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Invoice settings retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def patch(self, request):
+        tenant_id = self._tenant_id(request)
+        if not tenant_id:
+            return error_response(
+                request,
+                code="TENANT_CONTEXT_MISSING",
+                message="Authenticated user is not mapped to a tenant.",
+                error="Tenant association is required for this endpoint.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        instance, _ = TenantInvoiceSettings.objects.get_or_create(tenant_id=tenant_id)
+        serializer = TenantInvoiceSettingsSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="TENANT_INVOICE_SETTINGS_UPDATED",
+            message="Invoice settings updated successfully.",
+            data=serializer.data,
             status_code=status.HTTP_200_OK,
         )
 

@@ -1,630 +1,249 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice {{ invoice.invoice_number }}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        @page {
-            size: A4;
-            margin: 20mm 22mm 20mm 22mm;
-        }
-
-        @media print {
-            body {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-            }
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 12px;
-            color: #334155;
-            background: #ffffff;
-            line-height: 1.6;
-            display: grid;
-            grid-template-rows: 1fr auto;
-            min-height: 100vh;
-        }
-
-        /* Typography */
-        .brand-name {
-            font-size: 20px;
-            font-weight: 800;
-            color: #0f172a;
-            letter-spacing: -0.01em;
-        }
-
-        .inv-title {
-            font-size: 46px;
-            font-weight: 900;
-            color: {{ accent_color|safe }};
-            line-height: 1;
-            letter-spacing: -0.02em;
-            text-align: right;
-        }
-
-        .inv-number {
-            font-size: 14px;
-            font-weight: 700;
-            color: #0f172a;
-            text-align: right;
-            padding-top: 5px;
-        }
-
-        .meta-label {
-            font-size: 9px;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            padding-bottom: 3px;
-        }
-
-        .meta-value {
-            font-size: 12px;
-            font-weight: 700;
-            color: #334155;
-        }
-
-        .sec-label {
-            font-size: 9px;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.09em;
-            padding-bottom: 8px;
-            display: block;
-        }
-
-        .cust-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: #0f172a;
-            padding-bottom: 5px;
-        }
-
-        .cust-detail {
-            font-size: 12px;
-            color: #64748b;
-            padding-bottom: 2px;
-        }
-
-        .veh-label {
-            font-size: 9px;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            padding-bottom: 2px;
-        }
-
-        .veh-value {
-            font-size: 13px;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .item-name {
-            font-size: 13px;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .item-detail {
-            font-size: 11px;
-            color: #64748b;
-            font-style: italic;
-            padding-top: 3px;
-        }
-
-        .item-hsn {
-            font-size: 10px;
-            color: #94a3b8;
-            padding-top: 3px;
-        }
-
-        /* Layout */
-        .layout-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .layout-table td {
-            padding: 0;
-            vertical-align: top;
-        }
-
-        .hr-light {
-            border: none;
-            border-top: 1px solid #e2e8f0;
-            margin: 18px 0;
-        }
-
-        .hr-medium {
-            border: none;
-            border-top: 1px solid #cbd5e1;
-            margin: 18px 0;
-        }
-
-        /* Logo */
-        .brand-logo {
-            width: 52px;
-            height: 52px;
-            object-fit: contain;
-            vertical-align: middle;
-        }
-
-        /* Line Items Table */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .items-table th {
-            font-size: 9px;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-            padding: 9px 8px;
-            border-bottom: 1px solid #cbd5e1;
-            background-color: #f8fafc;
-            text-align: right;
-        }
-
-        .items-table th:first-child {
-            text-align: left;
-        }
-
-        .items-table td {
-            padding: 13px 8px;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: top;
-            text-align: right;
-        }
-
-        .items-table td:first-child {
-            text-align: left;
-        }
-
-        .items-table .col-qty {
-            width: 11%;
-        }
-
-        .items-table .col-price {
-            width: 18%;
-        }
-
-        .items-table .col-amt {
-            width: 18%;
-        }
-
-        /* Totals */
-        .totals-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        .totals-table td {
-            padding: 6px 12px;
-        }
-
-        .totals-spacer {
-            width: 55%;
-        }
-
-        .totals-inner {
-            width: 45%;
-            border-collapse: collapse;
-        }
-
-        .totals-inner td {
-            padding: 8px 8px;
-        }
-
-        .tot-label {
-            font-size: 12px;
-            color: #64748b;
-            text-align: right;
-        }
-
-        .tot-value {
-            font-size: 12px;
-            font-weight: 700;
-            color: #0f172a;
-            text-align: right;
-        }
-
-        .tot-due-lbl {
-            font-size: 15px;
-            font-weight: 800;
-            color: {{ accent_color|safe }};
-            text-align: right;
-        }
-
-        .tot-due-val {
-            font-size: 15px;
-            font-weight: 800;
-            color: {{ accent_color|safe }};
-            text-align: right;
-        }
-
-        .border-top-line {
-            border-top: 2px solid #e2e8f0;
-        }
-
-        /* Status Strip */
-        .status-strip {
-            margin-top: 24px;
-            padding: 16px 20px;
-            text-align: center;
-            font-size: 10px;
-            font-weight: 900;
-            letter-spacing: 0.12em;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-        }
-
-        .status-paid {
-            background: #E8F5E9;
-            color: #2E7D32;
-        }
-
-        .status-partial {
-            background: #fffbeb;
-            color: #d97706;
-        }
-
-        .status-unpaid {
-            background: #fff1f2;
-            color: #e11d48;
-        }
-
-        /* Info Boxes */
-        .info-box {
-            margin-top: 14px;
-            padding: 12px 14px;
-            border-radius: 4px;
-        }
-
-        .notes-box {
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-        }
-
-        .notes-lbl {
-            font-size: 9px;
-            font-weight: 700;
-            color: #0284c7;
-            text-transform: uppercase;
-            letter-spacing: 0.09em;
-            padding-bottom: 5px;
-        }
-
-        .notes-body {
-            font-size: 12px;
-            color: #334155;
-        }
-
-        .recommendation-box {
-            margin-top: 20px;
-            padding: 16px 18px;
-            background: #fffbf0;
-            border-left: 4px solid #f59e0b;
-            border-radius: 0 8px 8px 0;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-        }
-
-        .recommendation-lbl {
-            font-size: 7.5px;
-            font-weight: 900;
-            color: #d97706;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            padding-bottom: 8px;
-            display: block;
-        }
-
-        .recommendation-body {
-            font-size: 12px;
-            color: #44403c;
-            line-height: 1.5;
-        }
-
-        /* Signatures */
-        .signatures-section {
-            margin-top: 64px;
-            padding-top: 40px;
-            padding-bottom: 16px;
-            border-top: 2px solid #e5e7eb;
-        }
-
-        .signatures-grid {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .signature-col {
-            width: 50%;
-            padding: 0 36px;
-            vertical-align: top;
-        }
-
-        .signature-label {
-            font-size: 10px;
-            font-weight: 900;
-            color: #475569;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            padding-bottom: 96px;
-            display: block;
-        }
-
-        .signature-line {
-            border-top: 2px solid #1f2937;
-            height: 0;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            margin-bottom: 8px;
-        }
-
-        .signature-image {
-            max-width: 100%;
-            max-height: 80px;
-            object-fit: contain;
-        }
-
-        /* Footer */
-        .footer-section {
-            padding-top: 60px;
-            padding-bottom: 0;
-            border-top: 1px solid #e2e8f0;
-            text-align: center;
-        }
-
-        .footer-main {
-            font-size: 12px;
-            color: #64748b;
-            padding-bottom: 6px;
-            line-height: 1.5;
-            font-weight: 500;
-        }
-
-        .footer-faint {
-            font-size: 8px;
-            color: #94a3b8;
-        }
-
-        .footer-sub {
-            font-size: 11px;
-            color: #94a3b8;
-            padding-top: 2px;
-        }
-    </style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoice {{ invoice.invoice_number }} - {{ invoice.tenant_name_snapshot }}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<style>
+    @media print {
+        body { background: white !important; color: black !important; }
+        .no-print { display: none !important; }
+        .print-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+    body { font-family: 'Inter', sans-serif; }
+    .font-hanken { font-family: 'Hanken Grotesk', sans-serif; }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        vertical-align: middle;
+    }
+    .technical-divider { border-bottom: 1px solid #cbd5e1; }
+</style>
 </head>
-<body>
-    <!-- Header -->
-    <table class="layout-table">
-        <tr>
-            <td style="width:50%; padding-right:16px;">
-                <div style="margin-bottom: 16px;">
-                    <span class="brand-name">{{ invoice.tenant_name_snapshot }}</span>
-                </div>
-                {% if invoice.tenant_address_snapshot %}
-                <div style="font-size: 11px; color: #64748b; line-height: 1.6; max-width: 300px;">
-                    {{ invoice.tenant_address_snapshot }}
-                </div>
-                {% endif %}
-                {% if invoice.tenant_gstin_snapshot %}
-                <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-top: 8px;">
-                    GSTIN: {{ invoice.tenant_gstin_snapshot }}
-                </div>
-                {% endif %}
-            </td>
-            <td style="width:50%; text-align:right;">
-                <div class="inv-title">INVOICE</div>
-                <div class="inv-number">#{{ invoice.invoice_number }}</div>
-                <br>
-                <table style="margin-left:auto; border-collapse:collapse;">
-                    <tr>
-                        <td style="padding-right:24px; text-align:left;">
-                            <div class="meta-label">DATE ISSUED</div>
-                            <div class="meta-value">
-                                {% if invoice.created_at %}
-                                    {{ invoice.created_at|date:"d b Y" }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+<body class="bg-slate-950 flex flex-col items-center min-h-screen py-10">
+<!-- Action Toolbar (No Print) -->
+<div class="no-print w-full max-w-[210mm] flex justify-between items-center mb-8 px-4">
+<button class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors" onclick="window.history.back()">
+<span class="material-symbols-outlined">arrow_back</span>
+<span class="font-mono-tech text-xs tracking-wider">BACK</span>
+</button>
+<button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all" onclick="window.print()">
+<span class="material-symbols-outlined">print</span>
+<span class="font-mono-tech text-xs tracking-wider">PRINT / SAVE PDF</span>
+</button>
+</div>
 
-    <hr class="hr-light">
+<!-- A4 Container -->
+<div class="print-container bg-white text-slate-900 w-full max-w-[210mm] shadow-2xl p-12 flex flex-col">
 
-    <!-- Bill To & Vehicle Details -->
-    <table class="layout-table">
-        <tr>
-            <td style="width:48%; padding-right:20px; padding-bottom:10px;">
-                <span class="sec-label">Bill To</span>
-                {% if invoice.is_pii_erased %}
-                    <div class="cust-detail">[Customer data erased]</div>
-                {% else %}
-                    <div class="cust-name">{{ invoice.customer_name }}</div>
-                    {% if invoice.customer_phone %}<div class="cust-detail">{{ invoice.customer_phone }}</div>{% endif %}
-                    {% if invoice.customer_email %}<div class="cust-detail">{{ invoice.customer_email }}</div>{% endif %}
-                    {% if invoice.customer_address %}<div class="cust-detail">{{ invoice.customer_address }}</div>{% endif %}
-                {% endif %}
-            </td>
-            <td style="width:52%; padding-bottom:10px;">
-                <span class="sec-label">Vehicle Details</span>
-                <table style="width:100%; border-collapse:collapse;">
-                    <tr>
-                        <td style="width:50%; padding-bottom:12px; padding-right:8px; vertical-align:top;">
-                            <div class="veh-label">Make / Model</div>
-                            <div class="veh-value">{{ invoice.vehicle_label_snapshot }}</div>
-                        </td>
-                        <td style="width:50%; padding-bottom:12px; vertical-align:top;">
-                            <div class="veh-label">License Plate</div>
-                            <div class="veh-value">{{ invoice.vehicle_registration_no_snapshot }}</div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding-right:8px; vertical-align:top;">
-                            <div class="veh-label">VIN</div>
-                            <div class="veh-value">{{ invoice.vehicle_vin_snapshot }}</div>
-                        </td>
-                        <td style="vertical-align:top;">
-                            <div class="veh-label">Odometer</div>
-                            <div class="veh-value">
-                                {% if invoice.vehicle_odometer_snapshot %}
-                                    {{ invoice.vehicle_odometer_snapshot|floatformat:0 }} km
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-
-    <hr class="hr-medium">
-
-    <!-- Line Items -->
-    <table class="items-table">
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th class="col-qty">Qty / Hrs</th>
-                <th class="col-price">Unit Price</th>
-                <th class="col-amt">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for line in invoice.line_items %}
-            <tr>
-                <td>
-                    <div class="item-name">{{ line.description }}</div>
-                    {% if line.detail_text %}<div class="item-detail">{{ line.detail_text }}</div>{% endif %}
-                    {% if line.hsn_sac_code %}<div class="item-hsn">HSN/SAC: {{ line.hsn_sac_code }}</div>{% endif %}
-                </td>
-                <td>{{ line.quantity|floatformat:2 }}</td>
-                <td>₹{{ line.unit_price|floatformat:2 }}</td>
-                <td><strong>₹{{ line.line_total|floatformat:2 }}</strong></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Totals -->
-    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-        <tr>
-            <td style="width:52%;"></td>
-            <td style="width:48%;">
-                <table style="width:100%; border-collapse:collapse;">
-                    <tr>
-                        <td class="tot-label" style="padding:5px 8px 5px 0;">Subtotal</td>
-                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ invoice.subtotal|floatformat:2 }}</td>
-                    </tr>
-                    {% if invoice.discount_amount > 0 %}
-                    <tr>
-                        <td class="tot-label" style="padding:5px 8px 5px 0;">Discount</td>
-                        <td class="tot-value" style="padding:5px 0 5px 8px; color:#be123c;">−₹{{ invoice.discount_amount|floatformat:2 }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if total_gst > 0 %}
-                    <tr>
-                        <td class="tot-label" style="padding:5px 8px 5px 0;">{{ gst_label }}</td>
-                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ total_gst|floatformat:2 }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if invoice.shop_fees > 0 %}
-                    <tr>
-                        <td class="tot-label" style="padding:5px 8px 5px 0;">Shop fees</td>
-                        <td class="tot-value" style="padding:5px 0 5px 8px;">₹{{ invoice.shop_fees|floatformat:2 }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <td class="tot-due-lbl" style="padding:10px 8px 6px 0; border-top:1px solid #cbd5e1;">TOTAL DUE</td>
-                        <td class="tot-due-val" style="padding:10px 0 6px 8px; border-top:1px solid #cbd5e1;">₹{{ invoice.total_amount|floatformat:2 }}</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-
-    <!-- Status -->
-    <div class="status-strip {% if is_paid %}status-paid{% elif is_partial %}status-partial{% else %}status-unpaid{% endif %}">
-        {% if is_paid %}
-            ✓ Status: Fully Paid
-        {% elif is_partial %}
-            ◐ Status: Partially Paid · Balance ₹{{ balance|floatformat:2 }}
+  <!-- Header -->
+  <header class="flex justify-between items-start mb-10 pb-6 technical-divider">
+    <div class="space-y-2">
+      <div class="flex items-center gap-3">
+        {% if logo_data_url %}
+        <img src="{{ logo_data_url }}" alt="Logo" class="w-12 h-12 rounded object-contain"/>
         {% else %}
-            ○ Status: Unpaid
+        <div class="w-12 h-12 bg-slate-900 rounded flex items-center justify-center text-white">
+          <span class="material-symbols-outlined" style="font-size: 32px;">directions_car</span>
+        </div>
         {% endif %}
+        <div>
+          <h1 class="font-hanken text-2xl font-bold uppercase tracking-tight text-slate-900">{{ invoice.tenant_name_snapshot }}</h1>
+          <p class="font-mono-tech text-[10px] tracking-widest text-slate-500">AUTHORIZED SERVICE CENTER</p>
+        </div>
+      </div>
+      {% if invoice.tenant_address_snapshot %}
+      <div class="mt-4 max-w-xs">
+        <p class="text-xs text-slate-600 leading-tight">{{ invoice.tenant_address_snapshot }}</p>
+        {% if invoice.tenant_gstin_snapshot %}<p class="text-xs text-slate-600 font-bold mt-1">GSTIN: {{ invoice.tenant_gstin_snapshot }}</p>{% endif %}
+      </div>
+      {% endif %}
     </div>
-
-    <!-- Recommendation -->
-    {% if invoice.next_service_recommendation %}
-    <div class="recommendation-box">
-        <div class="recommendation-lbl">💡 Next Service Recommendation</div>
-        <div class="recommendation-body">{{ invoice.next_service_recommendation }}</div>
+    <div class="text-right">
+      <h2 class="font-hanken text-lg font-bold text-slate-900 mb-2">TAX INVOICE</h2>
+      <div class="inline-grid grid-cols-2 gap-x-4 text-right">
+        <span class="font-mono-tech text-xs text-slate-500">INVOICE NO:</span>
+        <span class="font-mono-tech text-xs font-bold text-slate-900">#{{ invoice.invoice_number }}</span>
+        <span class="font-mono-tech text-xs text-slate-500">DATE:</span>
+        <span class="font-mono-tech text-xs font-bold text-slate-900">
+          {% if invoice.created_at %}{{ invoice.created_at|date:"d M Y" }}{% else %}—{% endif %}
+        </span>
+        <span class="font-mono-tech text-xs text-slate-500">STATUS:</span>
+        <span class="font-mono-tech text-xs font-bold {% if is_paid %}text-emerald-600{% elif is_partial %}text-amber-600{% else %}text-rose-600{% endif %}">
+          {% if is_paid %}PAID{% elif is_partial %}PARTIAL{% else %}UNPAID{% endif %}
+        </span>
+      </div>
     </div>
-    {% endif %}
+  </header>
 
-    <!-- Signatures -->
+  <!-- Details Grid -->
+  <div class="grid grid-cols-2 gap-10 mb-10">
+    <!-- Customer Information -->
+    <div class="border-l-4 border-slate-900 pl-4 py-2">
+      <h3 class="font-mono-tech text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest">Bill To</h3>
+      {% if invoice.is_pii_erased %}
+        <p class="text-sm text-slate-500 italic">[Customer data erased]</p>
+      {% else %}
+      <div class="space-y-1">
+        <p class="font-hanken text-lg font-bold">{{ invoice.customer_name }}</p>
+        {% if invoice.customer_phone %}
+        <p class="text-sm text-slate-700 flex items-center gap-2">
+          <span class="material-symbols-outlined text-slate-400" style="font-size: 16px;">call</span>
+          {{ invoice.customer_phone }}
+        </p>
+        {% endif %}
+        {% if invoice.customer_email %}<p class="text-xs text-slate-500 mt-2">{{ invoice.customer_email }}</p>{% endif %}
+        {% if invoice.customer_gstin %}<p class="text-xs text-slate-500 mt-1">GSTIN: {{ invoice.customer_gstin }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <!-- Vehicle Information -->
+    <div class="border-l-4 border-slate-900 pl-4 py-2">
+      <h3 class="font-mono-tech text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest">Vehicle Details</h3>
+      <div class="grid grid-cols-1 gap-y-1">
+        <div class="flex justify-between">
+          <span class="text-xs text-slate-500">Vehicle:</span>
+          <span class="text-sm font-bold">{{ invoice.vehicle_label_snapshot }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-xs text-slate-500">Reg. No:</span>
+          <span class="text-sm font-bold font-mono-tech">{{ invoice.vehicle_registration_no_snapshot }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-xs text-slate-500">VIN:</span>
+          <span class="text-sm font-bold font-mono-tech">{{ invoice.vehicle_vin_snapshot }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-xs text-slate-500">Odometer:</span>
+          <span class="text-sm font-bold">
+            {% if invoice.vehicle_odometer_snapshot %}{{ invoice.vehicle_odometer_snapshot|floatformat:0 }} km{% else %}—{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Line Items Table -->
+  <div class="flex-grow">
+    <table class="w-full mb-10">
+      <thead>
+        <tr class="technical-divider bg-slate-50">
+          <th class="text-left font-mono-tech text-xs text-slate-600 px-4 py-3 uppercase">#</th>
+          <th class="text-left font-mono-tech text-xs text-slate-600 px-4 py-3 uppercase">Description</th>
+          <th class="text-center font-mono-tech text-xs text-slate-600 px-4 py-3 uppercase">Qty</th>
+          <th class="text-right font-mono-tech text-xs text-slate-600 px-4 py-3 uppercase">Unit Price</th>
+          <th class="text-right font-mono-tech text-xs text-slate-600 px-4 py-3 uppercase">Amount</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for line in invoice.line_items %}
+        <tr>
+          <td class="px-4 py-6 font-mono-tech text-slate-400">{{ forloop.counter|stringformat:"02d" }}</td>
+          <td class="px-4 py-6">
+            <p class="text-sm font-bold text-slate-900">{{ line.description }}</p>
+            {% if line.detail_text %}<p class="text-xs text-slate-500">{{ line.detail_text }}</p>{% endif %}
+            {% if line.hsn_sac_code %}<p class="text-[10px] text-slate-400 mt-1">HSN/SAC: {{ line.hsn_sac_code }}</p>{% endif %}
+          </td>
+          <td class="px-4 py-6 text-center text-sm">{{ line.quantity|floatformat:2 }}</td>
+          <td class="px-4 py-6 text-right font-mono-tech">₹{{ line.unit_price|floatformat:2 }}</td>
+          <td class="px-4 py-6 text-right font-mono-tech font-bold">₹{{ line.line_total|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">No line items.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary & Totals -->
+  <div class="grid grid-cols-12 gap-6 mt-10 pt-10">
+    <div class="col-span-7">
+      {% if invoice.next_service_recommendation %}
+      <div class="p-4 bg-amber-50 border-l-4 border-amber-400 rounded space-y-1 mb-4">
+        <p class="font-mono-tech text-[10px] font-bold text-amber-700 uppercase">Next Service Recommendation</p>
+        <p class="text-xs text-amber-900">{{ invoice.next_service_recommendation }}</p>
+      </div>
+      {% endif %}
+      {% if invoice.notes %}
+      <div class="p-4 bg-slate-50 rounded space-y-1">
+        <p class="font-mono-tech text-[10px] font-bold text-slate-400 uppercase">Notes</p>
+        <p class="text-xs text-slate-600">{{ invoice.notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-span-5">
+      <div class="space-y-2 border-t-2 border-slate-900 pt-4">
+        <div class="flex justify-between items-center px-2">
+          <span class="text-sm text-slate-600">Subtotal</span>
+          <span class="font-mono-tech text-sm font-medium text-slate-900">₹{{ invoice.subtotal|floatformat:2 }}</span>
+        </div>
+        {% if invoice.discount_amount|floatformat:2 != "0.00" %}
+        <div class="flex justify-between items-center px-2">
+          <span class="text-sm text-slate-600">Discount</span>
+          <span class="font-mono-tech text-sm font-medium text-rose-600">−₹{{ invoice.discount_amount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        {% if total_gst > 0 %}
+        <div class="flex justify-between items-center px-2">
+          <span class="text-sm text-slate-600">{{ gst_label }}</span>
+          <span class="font-mono-tech text-sm font-medium text-slate-900">₹{{ total_gst|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        {% if invoice.shop_fees|floatformat:2 != "0.00" %}
+        <div class="flex justify-between items-center px-2">
+          <span class="text-sm text-slate-600">Shop fees</span>
+          <span class="font-mono-tech text-sm font-medium text-slate-900">₹{{ invoice.shop_fees|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between items-center px-2 pt-2 border-t border-slate-200 bg-slate-900 text-white p-2 rounded mt-2">
+          <span class="font-mono-tech text-xs font-bold">TOTAL DUE</span>
+          <span class="font-hanken text-lg font-bold">₹{{ invoice.total_amount|floatformat:2 }}</span>
+        </div>
+        {% if is_partial %}
+        <div class="flex justify-between items-center px-2 pt-1">
+          <span class="text-xs text-amber-700 font-bold">Balance</span>
+          <span class="font-mono-tech text-xs font-bold text-amber-700">₹{{ balance|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Signatures & Disclaimer -->
+  <footer class="mt-8">
     {% if invoice.customer_signature or invoice.admin_signature %}
-    <div class="signatures-section">
-        <table class="signatures-grid">
-            <tr>
-                <td class="signature-col">
-                    <div class="signature-label">Customer Signature</div>
-                    <div class="signature-line">
-                        {% if invoice.customer_signature %}
-                            <img class="signature-image" src="{{ invoice.customer_signature }}" alt="Customer Signature">
-                        {% endif %}
-                    </div>
-                </td>
-                <td class="signature-col">
-                    <div class="signature-label">Authorized By</div>
-                    <div class="signature-line">
-                        {% if invoice.admin_signature %}
-                            <img class="signature-image" src="{{ invoice.admin_signature }}" alt="Admin Signature">
-                        {% endif %}
-                    </div>
-                </td>
-            </tr>
-        </table>
+    <div class="grid grid-cols-2 gap-20 mb-6">
+      <div class="text-center">
+        <div class="border-t border-slate-300 pt-2 mx-auto w-48">
+          {% if invoice.customer_signature %}<img src="{{ invoice.customer_signature }}" alt="Customer Signature" class="h-10 mx-auto object-contain mb-1"/>{% endif %}
+          <p class="font-mono-tech text-[10px] text-slate-500 uppercase">Customer Signature</p>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="border-t border-slate-300 pt-2 mx-auto w-48">
+          {% if invoice.admin_signature %}<img src="{{ invoice.admin_signature }}" alt="Authorized Signature" class="h-10 mx-auto object-contain mb-1"/>{% endif %}
+          <p class="font-mono-tech text-[10px] text-slate-500 uppercase">Authorized By</p>
+        </div>
+      </div>
     </div>
     {% endif %}
-
-    <!-- Footer -->
-    <div class="footer-section">
-        <p class="footer-main">Thank you for your business! We appreciate the opportunity to service your vehicle.</p>
+    <div class="pt-4 technical-divider border-t border-slate-200">
+      <p class="text-xs text-slate-400 text-center leading-relaxed">
+        Thank you for your business! We appreciate the opportunity to service your vehicle.
+        <br/>
         {% if invoice.customer_signature or invoice.admin_signature %}
-            <p class="footer-sub">✓ Signatures have been recorded.</p>
+          ✓ Signatures have been recorded.
         {% else %}
-            <p class="footer-sub">This is a computer-generated invoice and does not require a signature.</p>
+          This is a computer-generated invoice and does not require a signature.
         {% endif %}
-        {% if invoice.is_pii_erased %}
-            <p class="footer-faint" style="padding-top:6px;">Customer identity data removed per data protection request.</p>
-        {% endif %}
+        {% if invoice.is_pii_erased %}<br/>Customer identity data removed per data protection request.{% endif %}
+      </p>
     </div>
+  </footer>
+</div>
 </body>
 </html>

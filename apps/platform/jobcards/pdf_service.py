@@ -87,19 +87,19 @@ def _fmt_datetime(dt) -> str:
         return dt.strftime("%d %b %Y %H:%M")
 
 
-def _logo_data_url(tenant_id) -> str | None:
+def _media_data_url(storage_key: str | None) -> str | None:
+    """Read a stored media file (LOCAL disk or S3) and return it as a base64 data URI.
+    Used to embed images directly in Playwright-rendered HTML — avoids a network
+    round-trip to fetch the asset (which can fail for local/dev storage backends)."""
+    if not storage_key:
+        return None
     try:
-        from apps.platform.tenants.models import TenantBranding
-        branding = TenantBranding.objects.filter(tenant_id=tenant_id).first()
-        if not branding or not branding.logo:
-            return None
-
         raw: bytes | None = None
         backend = getattr(settings, "STORAGE_TYPE", "LOCAL").strip().upper()
 
         if backend == "LOCAL":
             from pathlib import Path
-            path = Path(settings.MEDIA_ROOT) / branding.logo
+            path = Path(settings.MEDIA_ROOT) / storage_key
             if path.is_file():
                 raw = path.read_bytes()
 
@@ -112,7 +112,7 @@ def _logo_data_url(tenant_id) -> str | None:
                 aws_secret_access_key=getattr(settings, "AWS_SECRET_ACCESS_KEY", "") or None,
             )
             buf = io.BytesIO()
-            client.download_fileobj(settings.AWS_STORAGE_BUCKET_NAME, branding.logo, buf)
+            client.download_fileobj(settings.AWS_STORAGE_BUCKET_NAME, storage_key, buf)
             buf.seek(0)
             raw = buf.read()
 
@@ -132,6 +132,18 @@ def _logo_data_url(tenant_id) -> str | None:
         b64 = base64.b64encode(raw).decode("ascii")
         return f"data:{mime};base64,{b64}"
 
+    except Exception:
+        logger.warning("Could not build data URL for stored media %r", storage_key, exc_info=True)
+    return None
+
+
+def _logo_data_url(tenant_id) -> str | None:
+    try:
+        from apps.platform.tenants.models import TenantBranding
+        branding = TenantBranding.objects.filter(tenant_id=tenant_id).first()
+        if not branding or not branding.logo:
+            return None
+        return _media_data_url(branding.logo)
     except Exception:
         logger.warning(
             "Could not build logo data URL for JobCard PDF (tenant_id=%s)", tenant_id, exc_info=True
@@ -272,17 +284,42 @@ class JobCardPdfService:
 
     @staticmethod
     def generate_and_store(job_card, *, force: bool = False) -> str:
-        if not WEASYPRINT_AVAILABLE:
-            raise PdfNotAvailableError("weasyprint is not installed.")
+        """
+        Generate the job card PDF and upload it to storage.
 
-        # We don't store the key in models for now, as Job Card is operational.
-        # But for caching purposes, let's assume we might want to in future.
-        # For now, we'll just generate it on the fly or use a temporary key.
-        # Actually, let's follow the Invoice pattern and add pdf_key to JobCard model if needed.
-        # But wait, I don't want to run migrations if I can avoid it.
-        # I'll just return the pre-signed URL directly without storing.
-        # No, wait. S3 requires a key.
-        
+        Prefers Playwright (renders ``jobcard_preview.html`` in a real headless
+        browser, so Tailwind/Google Fonts/icon fonts work exactly as in the web
+        preview) and falls back to WeasyPrint + ``jobcard_pdf.html`` if
+        Playwright isn't installed.
+        """
+        try:
+            from apps.platform.jobcards.pdf_generator import (
+                render_jobcard_preview_html,
+                generate_jobcard_pdf,
+            )
+            html_content = render_jobcard_preview_html(job_card)
+            logger.info("Using Playwright for PDF generation (job card: %s)", job_card.jobcard_number)
+            pdf_bytes = generate_jobcard_pdf(html_content)
+        except ImportError as ie:
+            logger.warning(
+                "Playwright not available (%s), falling back to WeasyPrint", str(ie)
+            )
+            if not WEASYPRINT_AVAILABLE:
+                raise PdfNotAvailableError(
+                    "weasyprint is not installed. Add it to requirements and restart."
+                )
+            try:
+                logger.info("Using WeasyPrint for PDF generation (job card: %s)", job_card.jobcard_number)
+                pdf_bytes = _render_pdf(job_card)
+            except PdfNotAvailableError:
+                raise
+            except Exception as exc:
+                logger.exception("PDF render failed for JobCard %s", job_card.jobcard_number)
+                raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
+        except Exception as exc:
+            logger.exception("PDF generation failed for JobCard %s", job_card.jobcard_number)
+            raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
+
         relative_key = _build_pdf_key(
             str(job_card.tenant_id),
             str(job_card.id),
@@ -290,11 +327,10 @@ class JobCardPdfService:
         )
 
         try:
-            pdf_bytes = _render_pdf(job_card)
             stored_key = _store_pdf_bytes(pdf_bytes, relative_key)
             return stored_key
         except Exception as exc:
-            logger.exception("PDF generation/storage failed for JobCard %s", job_card.jobcard_number)
+            logger.exception("PDF storage failed for JobCard %s", job_card.jobcard_number)
             raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
 
     @staticmethod

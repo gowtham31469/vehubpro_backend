@@ -276,6 +276,39 @@ class InvoiceDetailAPIView(APIView):
         )
 
 
+class InvoicePreviewHtmlAPIView(APIView):
+    """
+    GET /api/v1/invoices/{id}/preview-html/
+
+    Returns the raw HTML used to generate the invoice PDF (same template, same
+    data), for embedding in an iframe. This keeps the in-app preview guaranteed
+    pixel-identical to the downloaded PDF instead of a hand-maintained,
+    drift-prone React replica.
+    """
+
+    permission_classes = [IsAuthenticatedInvoiceAccess]
+
+    def get(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("tenant", "job_card").prefetch_related("line_items"),
+            pk=pk,
+            tenant_id=tenant_id,
+        )
+
+        # ISO 27001 / DPDP: rendering the preview decrypts PII, same as the PDF.
+        _log_pii_access(request, invoice)
+
+        from django.http import HttpResponse
+
+        from apps.platform.invoices.pdf_generator import render_invoice_preview_html
+        html = render_invoice_preview_html(invoice)
+        return HttpResponse(html, content_type="text/html")
+
+
 # ── Record payment ────────────────────────────────────────────────────────────
 
 class RecordPaymentAPIView(APIView):

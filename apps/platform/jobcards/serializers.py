@@ -101,6 +101,7 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    service_type = serializers.ChoiceField(choices=JobCardLineItem.SERVICE_TYPE_CHOICES, required=False)
 
     class Meta:
         model = JobCardLineItem
@@ -108,16 +109,28 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
             "id",
             "sort_order",
             "service_item",
+            "service_type",
             "description",
             "detail_text",
             "quantity",
             "unit_price",
             "discount_amount",
             "line_total",
+            "gst_percentage",
+            "cgst_amount",
+            "sgst_amount",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "line_total", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "line_total",
+            "gst_percentage",
+            "cgst_amount",
+            "sgst_amount",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class JobCardSerializer(serializers.ModelSerializer):

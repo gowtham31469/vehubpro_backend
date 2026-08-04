@@ -178,6 +178,10 @@ class InvoiceService:
         reg_no = vehicle.registration_no or ""
         vin_no = getattr(vehicle, "vin_number", "") or ""
         km_reading = getattr(job_card, "km_reading", None)
+        vehicle_brand_name = getattr(vehicle.brand, "name", "") if vehicle.brand_id else ""
+        vehicle_model_name = getattr(vehicle.vehicle_model, "name", "") if vehicle.vehicle_model_id else ""
+        vehicle_engine_no = getattr(vehicle, "engine_number", "") or ""
+        vehicle_year = getattr(vehicle, "year", None)
 
         # ── Create Invoice header ─────────────────────────────────────────────
         invoice = Invoice.objects.create(
@@ -196,7 +200,7 @@ class InvoiceService:
             customer_email_key_version=email_kv,
             customer_address_encrypted=address_enc,
             customer_address_key_version=address_kv,
-            customer_gstin=None,  # extend when customer GSTIN field is added
+            customer_gstin=getattr(customer, "gstin", None) or None,
             # Tenant snapshot
             **tenant_fields,
             # Vehicle snapshot
@@ -204,6 +208,10 @@ class InvoiceService:
             vehicle_label_snapshot=vehicle_label,
             vehicle_vin_snapshot=vin_no,
             vehicle_odometer_snapshot=km_reading,
+            vehicle_brand_snapshot=vehicle_brand_name,
+            vehicle_model_snapshot=vehicle_model_name,
+            vehicle_engine_no_snapshot=vehicle_engine_no,
+            vehicle_year_snapshot=vehicle_year,
             # Financial totals (copied verbatim — immutable after this point)
             subtotal=job_card.subtotal,
             discount_amount=job_card.discount_amount,
@@ -226,23 +234,23 @@ class InvoiceService:
         )
         invoice_lines = []
         for line in line_items_data:
-            gst_pct = Decimal("0")
             hsn_sac = ""
             if line.service_item_id and line.service_item:
-                si = line.service_item
-                gst_pct = Decimal(str(si.gst_percentage or 0))
-                hsn_sac = si.hsn_code or ""
+                hsn_sac = line.service_item.hsn_code or ""
             invoice_lines.append(
                 InvoiceLineItem(
                     invoice=invoice,
                     sort_order=line.sort_order,
+                    service_type=line.service_type,
                     description=line.description,
                     detail_text=line.detail_text or "",
                     hsn_sac_code=hsn_sac,
                     quantity=line.quantity,
                     unit_price=line.unit_price,
                     discount_amount=line.discount_amount,
-                    gst_percentage=gst_pct,
+                    gst_percentage=line.gst_percentage,
+                    cgst_amount=line.cgst_amount,
+                    sgst_amount=line.sgst_amount,
                     line_total=line.line_total,
                 )
             )

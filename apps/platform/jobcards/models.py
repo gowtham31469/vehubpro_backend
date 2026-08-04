@@ -43,6 +43,13 @@ class JobCardFySequence(BaseModel):
 class JobCardLineItem(BaseModel):
     """Billable line on a job card (normalized; optional link to catalog ServiceItem)."""
 
+    SERVICE_TYPE_PART = "part"
+    SERVICE_TYPE_LABOUR = "labour"
+    SERVICE_TYPE_CHOICES = [
+        (SERVICE_TYPE_PART, "Part"),
+        (SERVICE_TYPE_LABOUR, "Labour"),
+    ]
+
     job_card = models.ForeignKey(
         "jobcards.JobCard",
         on_delete=models.CASCADE,
@@ -56,11 +63,20 @@ class JobCardLineItem(BaseModel):
         blank=True,
         related_name="job_card_lines",
     )
+    service_type = models.CharField(max_length=10, choices=SERVICE_TYPE_CHOICES, default=SERVICE_TYPE_LABOUR)
     description = models.CharField(max_length=500)
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    gst_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Snapshot of the linked catalog service item's GST% at sync time (0 for custom lines).",
+    )
+    cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     detail_text = models.CharField(
         max_length=500,
         blank=True,

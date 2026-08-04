@@ -148,6 +148,7 @@ class JobCardDetailAPIView(APIView):
                 request,
                 code="JOB_CARD_LOCKED",
                 message="This job card is already invoiced and cannot be modified.",
+                error="Job card is locked after invoicing.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         payload = request.data.copy()
@@ -171,16 +172,26 @@ class JobCardDetailAPIView(APIView):
         if error:
             return error
         instance = self.get_object(request, pk)
-        if instance.status == JobCard.STATUS_INVOICED:
+
+        payload = request.data.copy()
+        payload.pop("tenant", None)
+        payload.pop("jobcard_number", None)
+
+        # Once invoiced, financial/line-item data is locked — but advancing
+        # status to 'delivered' (the natural step after invoicing) must still
+        # be allowed; the frontend's dedicated "Mark as Delivered" button
+        # relies on exactly this status-only transition.
+        is_mark_delivered = (
+            set(payload.keys()) <= {"status"} and payload.get("status") == JobCard.STATUS_DELIVERED
+        )
+        if instance.status == JobCard.STATUS_INVOICED and not is_mark_delivered:
             return error_response(
                 request,
                 code="JOB_CARD_LOCKED",
                 message="This job card is already invoiced and cannot be modified.",
+                error="Job card is locked after invoicing.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        payload = request.data.copy()
-        payload.pop("tenant", None)
-        payload.pop("jobcard_number", None)
         serializer = JobCardSerializer(
             instance, data=payload, partial=True, context={"request": request, "tenant_id": tenant_id}
         )

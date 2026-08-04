@@ -1,16 +1,24 @@
 """
 Invoice PDF generation using Playwright.
 
-Renders the invoice preview HTML directly to PDF using headless browser.
-This ensures the PDF matches the web preview pixel-perfectly.
+Renders the SAME shared "black-bar" template used for job cards
+(`jobcards/templates/jobcards/jobcard_preview.html`) so the two document types
+stay pixel-identical, parameterized by a few doc_type_label/doc_number_label/
+notes_label context keys — "INVOICE" instead of "JOB CARD", invoice number
+instead of job card number, and "Next Service Recommendation" instead of "Notes".
 """
 import asyncio
-import io
 import logging
-from pathlib import Path
+from decimal import Decimal
 
-from django.conf import settings
 from django.template.loader import render_to_string
+
+from apps.common.utils.pdf_documents import (
+    build_invoice_settings_pdf_context,
+    fmt_date,
+    fmt_money,
+    split_lines_into_sections,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,34 +40,20 @@ async def generate_invoice_pdf_async(html_content: str) -> bytes:
         browser = await p.chromium.launch()
         try:
             page = await browser.new_page()
-
-            # Set viewport to A4 proportions
             await page.set_viewport_size({"width": 1024, "height": 1448})
-
-            # Load the HTML content
             await page.set_content(html_content, wait_until="networkidle")
-
-            # Generate PDF with A4 settings
             pdf_bytes = await page.pdf(
                 format="A4",
-                margin={
-                    "top": "20mm",
-                    "right": "22mm",
-                    "bottom": "20mm",
-                    "left": "22mm",
-                },
+                margin={"top": "14mm", "right": "16mm", "bottom": "14mm", "left": "16mm"},
                 print_background=True,
             )
-
             return pdf_bytes
         finally:
             await browser.close()
 
 
 def generate_invoice_pdf(html_content: str) -> bytes:
-    """
-    Synchronous wrapper for async PDF generation.
-    """
+    """Synchronous wrapper for async PDF generation."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -68,76 +62,104 @@ def generate_invoice_pdf(html_content: str) -> bytes:
         loop.close()
 
 
+# Payment status -> (display label, Tailwind text-color utility class)
+_STATUS_DISPLAY = {
+    "unpaid":  ("UNPAID", "text-rose-600"),
+    "partial": ("PARTIALLY PAID", "text-amber-600"),
+    "paid":    ("PAID", "text-emerald-600"),
+}
+
+
 def render_invoice_preview_html(invoice) -> str:
     """
-    Render invoice as standalone HTML (matching the web preview exactly).
+    Render the invoice as standalone HTML (matching the job card's design exactly).
 
     Returns the complete HTML document that can be converted to PDF.
     """
-    # Build the same context as the preview component
-    from apps.platform.invoices.serializers import InvoiceDetailSerializer
+    from apps.platform.jobcards.pdf_service import _logo_data_url, _media_data_url
 
-    invoice_data = InvoiceDetailSerializer(invoice).data
+    tenant = invoice.tenant
 
-    # Debug: log what fields are in the serialized data
-    logger.debug("Invoice serialized data keys: %s", list(invoice_data.keys()))
-    logger.debug("tenant_address_snapshot in data: %s", 'tenant_address_snapshot' in invoice_data)
-    if 'tenant_address_snapshot' in invoice_data:
-        logger.debug("tenant_address_snapshot value: %s", invoice_data.get('tenant_address_snapshot'))
+    # ── Tenant — name/GSTIN use the invoice's own statutory snapshot (GST Rule 46
+    #     requires the supplier details as registered at the time of the
+    #     transaction). Address falls back to the live tenant record when the
+    #     snapshot is blank — older invoices generated before the tenant had an
+    #     address on file would otherwise show nothing, unlike job cards which
+    #     always read the live address directly. ────────────────────────────
+    tenant_name = invoice.tenant_name_snapshot or (tenant.name if tenant else "AUTOCARE PRO")
+    tenant_address = invoice.tenant_address_snapshot or ""
+    invoice_settings = None
+    if tenant:
+        if not tenant_address:
+            try:
+                pii = getattr(tenant, "pii", None)
+                if pii:
+                    tenant_address = pii.address or ""
+            except Exception:
+                pass
+        try:
+            invoice_settings = tenant.invoice_settings
+        except Exception:
+            invoice_settings = None
 
-    # Calculate derived values (same as preview)
-    is_paid = invoice.payment_status == 'paid'
-    is_partial = invoice.payment_status == 'partial'
-    balance = max(0, float(invoice.total_amount or 0) - float(invoice.amount_paid or 0))
+    # ── Customer — from the invoice's own immutable PII snapshot, never the
+    #     live customer record (which may have changed or been erased since). ──
+    if invoice.is_pii_erased:
+        customer_name = "[ERASED]"
+        customer_address = "[ERASED]"
+    else:
+        try:
+            customer_name = invoice.get_customer_name() or "—"
+        except Exception:
+            customer_name = "—"
+        try:
+            customer_address = invoice.get_customer_address() or ""
+        except Exception:
+            customer_address = ""
+    customer_gstin = invoice.customer_gstin or ""
 
-    total_gst = (
-        float(invoice.cgst_amount or 0) +
-        float(invoice.sgst_amount or 0) +
-        float(invoice.igst_amount or 0)
+    # ── Line items — split into Parts / Labour using each line's own stored
+    #     gst_percentage/cgst_amount/sgst_amount (copied verbatim from the
+    #     source job card line at invoice-generation time). ───────────────────
+    def _stored_cgst_sgst(line):
+        return Decimal(str(line.cgst_amount or 0)), Decimal(str(line.sgst_amount or 0))
+
+    lines_ctx = split_lines_into_sections(
+        invoice.line_items.order_by("sort_order", "created_at"),
+        cgst_sgst_fn=_stored_cgst_sgst,
     )
 
-    # Get GST rates from line items
-    gst_rates = set()
-    for line in invoice.line_items.all():
-        rate = float(line.gst_percentage or 0)
-        if rate:
-            gst_rates.add(rate)
+    # ── Terms & conditions / bank details / QR ────────────────────────────────
+    settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
 
-    if len(gst_rates) == 1:
-        gst_label = f"{list(gst_rates)[0]:.0f}%"
-    else:
-        gst_label = "GST"
-
-    # Get tenant branding
-    try:
-        from apps.platform.tenants.models import TenantBranding
-        branding = TenantBranding.objects.filter(tenant_id=invoice.tenant_id).first()
-        accent_color = branding.primary_color if branding and branding.primary_color else "#1d4ed8"
-    except Exception:
-        accent_color = "#1d4ed8"
+    status_label, status_color_class = _STATUS_DISPLAY.get(
+        invoice.payment_status, (invoice.payment_status.upper(), "text-slate-600")
+    )
 
     context = {
-        "invoice": invoice_data,
-        "is_paid": is_paid,
-        "is_partial": is_partial,
-        "balance": balance,
-        "total_gst": total_gst,
-        "gst_label": gst_label,
-        "accent_color": accent_color,
+        "tenant_name": tenant_name,
+        "tenant_address": tenant_address,
+        "logo_data_url": _logo_data_url(invoice.tenant_id),
+        "doc_type_label": "INVOICE",
+        "doc_number_label": "INVOICE NUMBER",
+        "doc_number": invoice.invoice_number,
+        "date_created": fmt_date(invoice.created_at),
+        "status_label": status_label,
+        "status_color_class": status_color_class,
+        "customer_name": customer_name,
+        "customer_address": customer_address,
+        "customer_gstin": customer_gstin,
+        "vehicle_reg": invoice.vehicle_registration_no_snapshot or "—",
+        "vehicle_brand": invoice.vehicle_brand_snapshot,
+        "vehicle_model_name": invoice.vehicle_model_snapshot,
+        "vehicle_vin": invoice.vehicle_vin_snapshot,
+        "vehicle_engine_no": invoice.vehicle_engine_no_snapshot,
+        "vehicle_year": invoice.vehicle_year_snapshot,
+        **lines_ctx,
+        "grand_total": fmt_money(invoice.total_amount),
+        "notes_label": "Next Service Recommendation:-",
+        "notes": invoice.next_service_recommendation or "",
+        **settings_ctx,
     }
 
-    # Render the preview HTML template
-    html = render_to_string("invoices/invoice_preview.html", context)
-
-    # Debug: save HTML to temp file for inspection
-    import tempfile
-    temp_path = tempfile.gettempdir()
-    debug_file = f"{temp_path}/invoice_{invoice.id}_debug.html"
-    try:
-        with open(debug_file, 'w') as f:
-            f.write(html)
-        logger.info("Debug HTML saved to: %s", debug_file)
-    except Exception as e:
-        logger.warning("Could not save debug HTML: %s", e)
-
-    return html
+    return render_to_string("jobcards/jobcard_preview.html", context)

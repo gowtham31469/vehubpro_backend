@@ -48,6 +48,10 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default=None)
     image_url = serializers.SerializerMethodField()
+    service_type = serializers.ChoiceField(choices=ServiceItem.SERVICE_TYPE_CHOICES)
+    applicable_vehicle_types = serializers.ListField(
+        child=serializers.CharField(), allow_empty=False,
+    )
 
     class Meta:
         model = ServiceItem
@@ -58,6 +62,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "category_name",
             "name",
             "description",
+            "service_type",
             "base_price",
             "hsn_code",
             "gst_percentage",

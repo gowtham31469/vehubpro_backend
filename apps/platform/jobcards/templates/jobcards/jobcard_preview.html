@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>{{ doc_type_label }} #{{ doc_number }} - {{ tenant_name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&amp;family=Inter:wght@400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <style>
+    @media print {
+      body {
+        background: white !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .sheet {
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .font-wordmark {
+      font-family: 'Playfair Display', serif;
+    }
+
+    .sheet {
+      width: 100%;
+      max-width: 210mm;
+      box-sizing: border-box;
+      padding: 14mm 16mm;
+    }
+
+    table.bordered {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    table.bordered th,
+    table.bordered td {
+      border: 1px solid #1e293b;
+    }
+
+    /* Avoid awkward mid-row / mid-section page splits when content overflows a page */
+    table.bordered tr,
+    .avoid-break {
+      page-break-inside: avoid;
+    }
+
+    .new-page {
+      page-break-before: always;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-500 flex flex-col items-center min-h-screen py-10 gap-8">
+
+  <!-- Action Toolbar (No Print) -->
+  <div class="no-print w-full max-w-[210mm] flex justify-between items-center px-4">
+    <button class="flex items-center gap-2 text-white hover:text-slate-200 transition-colors"
+      onclick="window.history.back()">
+      <span class="material-symbols-outlined">arrow_back</span>
+      <span class="text-xs font-semibold tracking-wider">BACK</span>
+    </button>
+    <button
+      class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all"
+      onclick="window.print()">
+      <span class="material-symbols-outlined">print</span>
+      <span class="text-xs font-semibold tracking-wider">PRINT / SAVE PDF</span>
+    </button>
+  </div>
+
+  <div class="sheet bg-white text-slate-900 shadow-2xl">
+
+    <!-- Header -->
+    <header class="avoid-break grid grid-cols-[64px_1fr_64px] items-start gap-4 mb-6">
+      <div>
+        {% if logo_data_url %}
+        <img src="{{ logo_data_url }}" alt="Logo" class="w-16 h-16 object-contain" />
+        {% endif %}
+      </div>
+      <div class="text-center">
+        <h1 class="font-wordmark italic text-4xl font-bold text-slate-900">{{ tenant_name }}</h1>
+        {% if tenant_address %}
+        <p class="text-[11px] italic font-semibold uppercase tracking-wide text-slate-700 mt-2 leading-snug">{{ tenant_address|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+      <div></div>
+    </header>
+
+    <!-- Document type bar -->
+    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mb-3">{{ doc_type_label }}</div>
+    <div class="flex items-center justify-between gap-4 mb-3 text-sm font-bold">
+      <span>{{ doc_number_label }} : {{ doc_number }}</span>
+      <span>DATE : {{ date_created }}</span>
+      <span class="{{ status_color_class }}">STATUS : {{ status_label }}</span>
+    </div>
+
+    <!-- CUSTOMER / VEHICLE DETAILS split bar -->
+    <div class="avoid-break grid grid-cols-2 mb-2">
+      <div class="bg-slate-900 text-white text-xs font-bold uppercase tracking-wide px-2 py-1.5">Customer Details</div>
+      <div class="bg-slate-900 text-white text-xs font-bold uppercase tracking-wide px-2 py-1.5">Vehicle Details</div>
+    </div>
+    <div class="avoid-break grid grid-cols-2 gap-4 mb-6 text-xs">
+      <div class="grid grid-cols-[100px_1fr] gap-y-1">
+        <span class="font-bold uppercase">Name </span><span>{{ customer_name }}</span>
+        <span class="font-bold uppercase">Address</span><span>{{ customer_address|default:"—" }}</span>
+        <span class="font-bold uppercase">Gst Number</span><span>{{ customer_gstin|default:"NILL" }}</span>
+      </div>
+      <div class="grid grid-cols-[110px_1fr] gap-y-1">
+        <span class="font-bold uppercase">Reg Number</span><span>{{ vehicle_reg }}</span>
+        <span class="font-bold uppercase">Make</span><span>{{ vehicle_brand|default:"—" }}</span>
+        <span class="font-bold uppercase">Model</span><span>{{ vehicle_model_name|default:"—" }}</span>
+        <span class="font-bold uppercase">Vin Number</span><span>{{ vehicle_vin|default:"—" }}</span>
+        <span class="font-bold uppercase">Eng Number</span><span>{{ vehicle_engine_no|default:"—" }}</span>
+        <span class="font-bold uppercase">Model Year</span><span>{{ vehicle_year|default:"—" }}</span>
+      </div>
+    </div>
+
+    {% if part_lines %}
+    <!-- PARTS DETAILS -->
+    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-xs mb-0">PARTS DETAILS</div>
+    <table class="bordered text-xs mb-6">
+      <thead>
+        <tr class="bg-slate-100">
+          <th class="py-1.5 px-2 w-16">Type</th>
+          <th class="py-1.5 px-2 w-12">S No</th>
+          <th class="py-1.5 px-2 text-left">Description</th>
+          <th class="py-1.5 px-2 w-20">Quantity</th>
+          <th class="py-1.5 px-2 w-24">Unit Price</th>
+          <th class="py-1.5 px-2 w-24">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in part_lines %}
+        <tr>
+          <td class="py-1 px-2 text-center">Part</td>
+          <td class="py-1 px-2 text-center">{{ line.s_no }}</td>
+          <td class="py-1 px-2">{{ line.description }}</td>
+          <td class="py-1 px-2 text-center">{{ line.quantity }}</td>
+          <td class="py-1 px-2 text-right">{{ line.unit_price|floatformat:2 }}</td>
+          <td class="py-1 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">Total Parts (Without GST)</td>
+          <td class="py-1 px-2 text-right">{{ parts_total }}</td>
+        </tr>
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">CGST{% if parts_gst_rate_pct %} ({{ parts_gst_rate_pct }}%){% endif %}</td>
+          <td class="py-1 px-2 text-right">{{ parts_cgst }}</td>
+        </tr>
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">SGST{% if parts_gst_rate_pct %} ({{ parts_gst_rate_pct }}%){% endif %}</td>
+          <td class="py-1 px-2 text-right">{{ parts_sgst }}</td>
+        </tr>
+        <tr class="bg-slate-200 font-bold">
+          <td colspan="5" class="py-1.5 px-2 text-right">TOTAL PARTS (WITH GST)</td>
+          <td class="py-1.5 px-2 text-right">{{ parts_total_with_gst }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if labour_lines %}
+    <!-- LABOUR DETAILS -->
+    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-xs mb-0">LABOUR DETAILS</div>
+    <table class="bordered text-xs mb-6">
+      <thead>
+        <tr class="bg-slate-100">
+          <th class="py-1.5 px-2 w-16">Type</th>
+          <th class="py-1.5 px-2 w-12">S No</th>
+          <th class="py-1.5 px-2 text-left">Description</th>
+          <th class="py-1.5 px-2 w-20">Quantity</th>
+          <th class="py-1.5 px-2 w-24">Unit Price</th>
+          <th class="py-1.5 px-2 w-24">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in labour_lines %}
+        <tr>
+          <td class="py-1 px-2 text-center">Labour</td>
+          <td class="py-1 px-2 text-center">{{ line.s_no }}</td>
+          <td class="py-1 px-2" colspan="3">{{ line.description }}</td>
+          <td class="py-1 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">Total Labour (Without GST)</td>
+          <td class="py-1 px-2 text-right">{{ labour_total }}</td>
+        </tr>
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">CGST{% if labour_gst_rate_pct %} ({{ labour_gst_rate_pct }}%){% endif %}</td>
+          <td class="py-1 px-2 text-right">{{ labour_cgst }}</td>
+        </tr>
+        <tr>
+          <td colspan="5" class="py-1 px-2 text-right">SGST{% if labour_gst_rate_pct %} ({{ labour_gst_rate_pct }}%){% endif %}</td>
+          <td class="py-1 px-2 text-right">{{ labour_sgst }}</td>
+        </tr>
+        <tr class="bg-slate-200 font-bold">
+          <td colspan="5" class="py-1.5 px-2 text-right">TOTAL LABOUR (WITH GST)</td>
+          <td class="py-1.5 px-2 text-right">{{ labour_total_with_gst }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% endif %}
+
+    <!-- GRAND TOTAL -->
+    <div class="bg-slate-900 text-white flex justify-between items-center px-3 py-2 font-bold text-sm mb-6">
+      <span class="tracking-widest">GRAND TOTAL</span>
+      <span>₹{{ grand_total }}</span>
+    </div>
+
+    <!-- Notes -->
+    <div class="avoid-break mt-8">
+      <div class="bg-slate-900 text-white inline-block px-3 py-1 text-xs font-bold mb-2">{{ notes_label }}</div>
+      {% if notes %}<p class="text-xs text-slate-700 leading-relaxed">{{ notes|linebreaksbr }}</p>{% endif %}
+    </div>
+
+    {% if terms_paragraphs %}
+    <div class="avoid-break bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mt-10 mb-4">TERMS &amp; CONDITIONS</div>
+    <div class="space-y-3 text-xs leading-relaxed text-slate-800 mb-8">
+      {% for para in terms_paragraphs %}
+      <p class="avoid-break">{{ forloop.counter }}. {{ para|linebreaksbr }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Bank Details + Signatures always start on a fresh page -->
+    <div class="new-page">
+      {% if bank_details %}
+      <p class="text-xs font-bold mb-3">Our account details mentioned below</p>
+      <div class="avoid-break grid grid-cols-[1fr_auto] gap-8 items-start mb-10">
+        <div class="text-xs space-y-1">
+          {% if bank_details.account_number %}<p>Account Number: <span class="font-bold">{{ bank_details.account_number }}</span></p>{% endif %}
+          {% if bank_details.ifsc_code %}<p>IFSC Code: <span class="font-bold">{{ bank_details.ifsc_code }}</span></p>{% endif %}
+          {% if bank_details.account_holder_name %}<p>Account Name: <span class="font-bold">{{ bank_details.account_holder_name }}</span></p>{% endif %}
+          {% if bank_details.account_type %}<p>Account Type: <span class="font-bold">{{ bank_details.account_type }}</span></p>{% endif %}
+          {% if bank_details.bank_name %}<p>Bank Name: <span class="font-bold">{{ bank_details.bank_name }}</span></p>{% endif %}
+          {% if bank_details.branch_name %}<p>Branch: <span class="font-bold">{{ bank_details.branch_name }}</span></p>{% endif %}
+          {% if bank_details.upi_id %}<p>UPI ID: <span class="font-bold">{{ bank_details.upi_id }}</span></p>{% endif %}
+        </div>
+        {% if qr_data_url %}
+        <img src="{{ qr_data_url }}" alt="UPI QR" class="w-32 h-32 object-contain border border-slate-300" />
+        {% endif %}
+      </div>
+      <p class="text-xs font-bold mb-10">I fully read &amp; understood about the terms &amp; conditions</p>
+      {% endif %}
+
+      <!-- Signatures -->
+      <div class="grid grid-cols-2 gap-8 mt-10">
+        <div class="pt-10 avoid-break">
+          <div class="bg-slate-900 text-white text-xs font-bold px-3 py-1.5">Customer or Receiver Signature</div>
+        </div>
+        <div class="pt-10 avoid-break">
+          <div class="bg-slate-900 text-white text-xs font-bold px-3 py-1.5">Authorized Signature</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

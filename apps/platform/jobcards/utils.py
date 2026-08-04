@@ -44,26 +44,22 @@ def extended_line_amount(line) -> Decimal:
     return net.quantize(Decimal("0.01"))
 
 
-def compute_line_amounts(services_items: list | None, discount_amount) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]:
-    """Subtotal from line extended amounts, 9+9 CGST/SGST on (subtotal - header discount)."""
-    subtotal = Decimal("0")
-    for line in services_items or []:
-        if line is None:
-            continue
-        subtotal += extended_line_amount(line)
-
-    discount = Decimal(str(discount_amount or 0))
-    if discount < 0:
-        discount = Decimal("0")
-    taxable = subtotal - discount
-    if taxable < 0:
-        taxable = Decimal("0")
-
-    cgst = (taxable * Decimal("0.09")).quantize(Decimal("0.01"))
-    sgst = (taxable * Decimal("0.09")).quantize(Decimal("0.01"))
-    igst = Decimal("0")
-    total = (taxable + cgst + sgst + igst).quantize(Decimal("0.01"))
-    return subtotal.quantize(Decimal("0.01")), discount, cgst, sgst, igst, total
+def allocate_cents_by_weight(weights: list[int], total_cents: int) -> list[int]:
+    """
+    Split integer cents across rows proportional to weights (same total as `total_cents`).
+    Mirrors `allocateCentsByWeight` in the job card editor's live preview (frontend) exactly,
+    so saved totals always match what the tenant saw before saving.
+    """
+    wsum = sum(weights)
+    if wsum <= 0 or total_cents <= 0:
+        return [0] * len(weights)
+    raw = [(w / wsum) * total_cents for w in weights]
+    base = [int(x) for x in raw]
+    rem = total_cents - sum(base)
+    order = sorted(range(len(raw)), key=lambda i: raw[i] - base[i], reverse=True)
+    for k in range(rem):
+        base[order[k % len(order)]] += 1
+    return base
 
 
 def _resolve_line_service_item(raw_si, tenant_id):
@@ -82,13 +78,28 @@ def _resolve_line_service_item(raw_si, tenant_id):
 
 
 def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_id) -> None:
-    """Replace all lines on a job card from payload (normalized rows)."""
+    """
+    Replace all lines on a job card from payload (normalized rows).
+
+    Each line's catalog GST% is snapshotted at sync time (0 for custom lines with no
+    catalog match), and its CGST/SGST contribution is computed and stored using the same
+    per-line taxable-allocation algorithm as the job card editor's live preview: the header
+    taxable amount (subtotal − discount) is split across lines by weight (each line's share
+    of the subtotal), then each line's own GST% is applied to its allocated taxable share,
+    rounded per line, then split half/half into CGST/SGST. This keeps the persisted totals
+    consistent with what the tenant saw in the preview before saving.
+    """
     JobCardLineItem.objects.filter(job_card=job_card).delete()
+
+    rows = []
     for idx, raw in enumerate(items_data or []):
         if not isinstance(raw, dict):
             continue
         sort_order = int(raw.get("sort_order", idx))
         sid, si_obj = _resolve_line_service_item(raw.get("service_item"), tenant_id)
+        service_type = raw.get("service_type")
+        if service_type not in dict(JobCardLineItem.SERVICE_TYPE_CHOICES):
+            service_type = si_obj.service_type if si_obj else JobCardLineItem.SERVICE_TYPE_LABOUR
         desc = (raw.get("description") or "").strip()
         qty = Decimal(str(raw.get("quantity", 1)))
         up = Decimal(str(raw.get("unit_price", 0)))
@@ -103,34 +114,96 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
         detail = (raw.get("detail_text") or "").strip()[:500]
         if not detail and si_obj and si_obj.description:
             detail = str(si_obj.description).strip()[:500]
-        JobCardLineItem.objects.create(
-            job_card=job_card,
-            sort_order=sort_order,
-            service_item_id=sid,
-            description=desc[:500],
-            detail_text=detail,
-            quantity=qty,
-            unit_price=up,
-            discount_amount=da,
-            line_total=lt,
+        gst_pct = (
+            Decimal(str(si_obj.gst_percentage))
+            if si_obj and si_obj.gst_percentage is not None
+            else Decimal("0")
         )
+        rows.append({
+            "sort_order": sort_order,
+            "service_item_id": sid,
+            "service_type": service_type,
+            "description": desc[:500],
+            "detail_text": detail,
+            "quantity": qty,
+            "unit_price": up,
+            "discount_amount": da,
+            "line_total": lt,
+            "gst_percentage": gst_pct,
+        })
+
+    if not rows:
+        return
+
+    discount = Decimal(str(job_card.discount_amount or 0))
+    if discount < 0:
+        discount = Decimal("0")
+    subtotal = sum((r["line_total"] for r in rows), Decimal("0"))
+    taxable = subtotal - discount
+    if taxable < 0:
+        taxable = Decimal("0")
+
+    weight_cents = [int((r["line_total"] * 100).to_integral_value()) for r in rows]
+    taxable_cents = int((taxable * 100).to_integral_value())
+    line_taxable_cents = allocate_cents_by_weight(weight_cents, taxable_cents)
+
+    objs = []
+    for r, taxable_c in zip(rows, line_taxable_cents):
+        base = Decimal(taxable_c) / Decimal("100")
+        total_line_tax = (base * r["gst_percentage"] / Decimal("100")).quantize(Decimal("0.01"))
+        half = (total_line_tax / 2).quantize(Decimal("0.01"))
+        cgst = half
+        sgst = (total_line_tax - half).quantize(Decimal("0.01"))
+        objs.append(JobCardLineItem(
+            job_card=job_card,
+            sort_order=r["sort_order"],
+            service_item_id=r["service_item_id"],
+            service_type=r["service_type"],
+            description=r["description"],
+            detail_text=r["detail_text"],
+            quantity=r["quantity"],
+            unit_price=r["unit_price"],
+            discount_amount=r["discount_amount"],
+            line_total=r["line_total"],
+            gst_percentage=r["gst_percentage"],
+            cgst_amount=cgst,
+            sgst_amount=sgst,
+        ))
+    JobCardLineItem.objects.bulk_create(objs)
 
 
 def refresh_job_card_totals(job_card: JobCard) -> None:
-    """Recompute header subtotal/tax/total from persisted line items, header discount, and shop fees."""
+    """
+    Recompute header subtotal/tax/total from persisted line items, header discount, and shop
+    fees. CGST/SGST are summed directly from each line's own stored amount (set by
+    `sync_job_card_line_items`) rather than re-derived from a flat rate, so the header total
+    reflects each line's actual catalog GST%.
+    """
     job_card.refresh_from_db(fields=["discount_amount", "shop_fees"])
-    items = list(job_card.line_items.all().order_by("sort_order", "id"))
-    lines = [{"line_total": li.line_total} for li in items]
-    sub, disc, cgst, sgst, igst, base_total = compute_line_amounts(lines, job_card.discount_amount)
+    items = list(job_card.line_items.all())
+
+    subtotal = sum((li.line_total for li in items), Decimal("0"))
+    discount = Decimal(str(job_card.discount_amount or 0))
+    if discount < 0:
+        discount = Decimal("0")
+    taxable = subtotal - discount
+    if taxable < 0:
+        taxable = Decimal("0")
+
+    cgst = sum((li.cgst_amount for li in items), Decimal("0"))
+    sgst = sum((li.sgst_amount for li in items), Decimal("0"))
+    igst = Decimal("0")
+
     shop = Decimal(str(job_card.shop_fees or 0))
     if shop < 0:
         shop = Decimal("0")
-    total = (base_total + shop).quantize(Decimal("0.01"))
+    total = (taxable + cgst + sgst + igst + shop).quantize(Decimal("0.01"))
+
     JobCard.objects.filter(pk=job_card.pk).update(
-        subtotal=sub,
-        discount_amount=disc,
-        cgst_amount=cgst,
-        sgst_amount=sgst,
+        subtotal=subtotal.quantize(Decimal("0.01")),
+        discount_amount=discount.quantize(Decimal("0.01")),
+        cgst_amount=cgst.quantize(Decimal("0.01")),
+        sgst_amount=sgst.quantize(Decimal("0.01")),
         igst_amount=igst,
         total_amount=total,
     )

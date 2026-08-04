@@ -53,6 +53,13 @@ class ServiceItem(BaseModel, SoftArchiveModel):
         ("per_km", "Per KM"),
     ]
 
+    SERVICE_TYPE_PART = "part"
+    SERVICE_TYPE_LABOUR = "labour"
+    SERVICE_TYPE_CHOICES = [
+        (SERVICE_TYPE_PART, "Part"),
+        (SERVICE_TYPE_LABOUR, "Labour"),
+    ]
+
     tenant = models.ForeignKey(
         "tenants.Tenant", on_delete=models.CASCADE, related_name="service_items"
     )
@@ -61,6 +68,7 @@ class ServiceItem(BaseModel, SoftArchiveModel):
     )
     name = models.CharField(max_length=150)
     description = models.TextField(null=True, blank=True)
+    service_type = models.CharField(max_length=10, choices=SERVICE_TYPE_CHOICES, default=SERVICE_TYPE_LABOUR)
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     hsn_code = models.CharField(max_length=8, null=True, blank=True)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
