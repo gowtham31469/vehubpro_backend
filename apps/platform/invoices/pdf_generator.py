@@ -63,14 +63,6 @@ def generate_invoice_pdf(html_content: str) -> bytes:
         loop.close()
 
 
-# Payment status -> (display label, Tailwind text-color utility class)
-_STATUS_DISPLAY = {
-    "unpaid":  ("UNPAID", "text-rose-600"),
-    "partial": ("PARTIALLY PAID", "text-amber-600"),
-    "paid":    ("PAID", "text-emerald-600"),
-}
-
-
 def render_invoice_preview_html(invoice) -> str:
     """
     Render the invoice as standalone HTML (matching the job card's design exactly).
@@ -143,10 +135,6 @@ def render_invoice_preview_html(invoice) -> str:
     # ── Terms & conditions / bank details / QR ────────────────────────────────
     settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
 
-    status_label, status_color_class = _STATUS_DISPLAY.get(
-        invoice.payment_status, (invoice.payment_status.upper(), "text-slate-600")
-    )
-
     context = {
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
@@ -160,8 +148,6 @@ def render_invoice_preview_html(invoice) -> str:
         "doc_number_label": "INVOICE NUMBER",
         "doc_number": invoice.invoice_number,
         "date_created": fmt_date(invoice.created_at),
-        "status_label": status_label,
-        "status_color_class": status_color_class,
         "customer_name": customer_name,
         "customer_address": customer_address,
         "customer_gstin": customer_gstin,
@@ -171,6 +157,7 @@ def render_invoice_preview_html(invoice) -> str:
         "vehicle_vin": invoice.vehicle_vin_snapshot,
         "vehicle_engine_no": invoice.vehicle_engine_no_snapshot,
         "vehicle_year": invoice.vehicle_year_snapshot,
+        "vehicle_odo": f"{invoice.vehicle_odometer_snapshot:,} km" if invoice.vehicle_odometer_snapshot else "",
         **lines_ctx,
         "grand_total": fmt_money(invoice.total_amount),
         "notes_label": "Next Service Recommendation:-",

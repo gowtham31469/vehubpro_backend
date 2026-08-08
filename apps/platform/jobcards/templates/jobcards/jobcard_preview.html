@@ -93,59 +93,50 @@
   <div class="sheet bg-white text-slate-900 shadow-2xl">
 
     <!-- Header -->
-    <header class="avoid-break mb-6 grid grid-cols-[1fr_auto_1fr] gap-x-6" style="grid-template-rows: auto auto 1fr;">
-      <!-- Row 1 -->
-      <h1 class="row-start-1 col-start-1 font-wordmark italic text-3xl font-bold text-slate-900 leading-tight">{{ tenant_name }}</h1>
-      <div class="row-start-1 row-span-3 col-start-2 flex items-center justify-center border-l border-r border-slate-300 px-8">
-        {% if logo_data_url %}
-        <img src="{{ logo_data_url }}" alt="Logo" class="w-24 h-24 object-contain" />
-        {% endif %}
+    <header class="avoid-break mb-6 flex items-center gap-8">
+      <div class="flex-1 min-w-0">
+        <h1 class="font-wordmark italic text-3xl font-bold text-slate-900 leading-tight mb-3">{{ tenant_name }}</h1>
+        <div class="space-y-2 text-xs text-slate-800">
+          {% if tenant_phone or tenant_email %}
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+              <span class="material-symbols-outlined" style="font-size: 14px;">call</span>
+            </span>
+            <span class="font-semibold uppercase tracking-wide">{% if tenant_phone %}{{ tenant_phone }}{% endif %}{% if tenant_phone and tenant_email %}, {% endif %}{% if tenant_email %}{{ tenant_email }}{% endif %}</span>
+          </div>
+          {% endif %}
+          {% if tenant_address %}
+          <div class="flex items-start gap-2.5">
+            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+              <span class="material-symbols-outlined" style="font-size: 14px;">location_on</span>
+            </span>
+            <span class="font-semibold uppercase tracking-wide leading-snug">{{ tenant_address|linebreaksbr }}</span>
+          </div>
+          {% endif %}
+          {% if tenant_gstin or tenant_pan %}
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+              <span class="material-symbols-outlined" style="font-size: 14px;">description</span>
+            </span>
+            <span class="font-semibold uppercase tracking-wide">{% if tenant_gstin %}GSTIN : {{ tenant_gstin }}{% endif %}{% if tenant_gstin and tenant_pan %}&nbsp;&nbsp;|&nbsp;&nbsp;{% endif %}{% if tenant_pan %}PAN NO : {{ tenant_pan }}{% endif %}</span>
+          </div>
+          {% endif %}
+          {% if tenant_state_code %}
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+              <span class="material-symbols-outlined" style="font-size: 14px;">assignment</span>
+            </span>
+            <span class="font-semibold uppercase tracking-wide">State Code : {{ tenant_state_code }}</span>
+          </div>
+          {% endif %}
+        </div>
       </div>
-      <div class="row-start-1 col-start-3"></div>
-
-      <!-- Row 2: aligned divider rules -->
-      <div class="row-start-2 col-start-1 border-b-2 border-slate-900 mt-2 mb-3"></div>
-      <div class="row-start-2 col-start-3 border-b-2 border-slate-900 mt-2 mb-3"></div>
-
-      <!-- Row 3: contact details -->
-      <div class="row-start-3 col-start-1 space-y-2 text-xs text-slate-800">
-        {% if tenant_phone or tenant_email %}
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-            <span class="material-symbols-outlined" style="font-size: 14px;">call</span>
-          </span>
-          <span class="font-semibold uppercase tracking-wide">{% if tenant_phone %}{{ tenant_phone }}{% endif %}{% if tenant_phone and tenant_email %}, {% endif %}{% if tenant_email %}{{ tenant_email }}{% endif %}</span>
-        </div>
-        {% endif %}
-        {% if tenant_gstin or tenant_pan %}
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-            <span class="material-symbols-outlined" style="font-size: 14px;">mail</span>
-          </span>
-          <span class="font-semibold uppercase tracking-wide">{% if tenant_gstin %}GSTIN : {{ tenant_gstin }}{% endif %}{% if tenant_gstin and tenant_pan %}&nbsp;&nbsp;|&nbsp;&nbsp;{% endif %}{% if tenant_pan %}PAN NO : {{ tenant_pan }}{% endif %}</span>
-        </div>
-        {% endif %}
-        {% if tenant_state_code %}
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-            <span class="material-symbols-outlined" style="font-size: 14px;">apartment</span>
-          </span>
-          <span class="font-semibold uppercase tracking-wide">State Code : {{ tenant_state_code }}</span>
-        </div>
-        {% endif %}
+      {% if logo_data_url %}
+      <div class="border-l border-slate-300 self-stretch"></div>
+      <div class="flex items-center justify-center flex-shrink-0">
+        <img src="{{ logo_data_url }}" alt="Logo" class="w-28 h-28 object-contain" />
       </div>
-
-      <!-- Row 3: address -->
-      <div class="row-start-3 col-start-3 text-xs text-slate-800">
-        {% if tenant_address %}
-        <div class="flex items-start gap-2.5">
-          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-            <span class="material-symbols-outlined" style="font-size: 14px;">location_on</span>
-          </span>
-          <span class="font-semibold uppercase tracking-wide leading-snug">{{ tenant_address|linebreaksbr }}</span>
-        </div>
-        {% endif %}
-      </div>
+      {% endif %}
     </header>
 
     <!-- Document type bar -->
@@ -153,7 +144,6 @@
     <div class="flex items-center justify-between gap-4 mb-3 text-sm font-bold">
       <span>{{ doc_number_label }} : {{ doc_number }}</span>
       <span>DATE : {{ date_created }}</span>
-      <span class="{{ status_color_class }}">STATUS : {{ status_label }}</span>
     </div>
 
     <!-- CUSTOMER / VEHICLE DETAILS split bar -->
@@ -174,6 +164,7 @@
         <span class="font-bold uppercase">Vin Number</span><span>{{ vehicle_vin|default:"—" }}</span>
         <span class="font-bold uppercase">Eng Number</span><span>{{ vehicle_engine_no|default:"—" }}</span>
         <span class="font-bold uppercase">Model Year</span><span>{{ vehicle_year|default:"—" }}</span>
+        <span class="font-bold uppercase">Odometer</span><span>{{ vehicle_odo|default:"—" }}</span>
       </div>
     </div>
 

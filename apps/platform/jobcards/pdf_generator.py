@@ -64,18 +64,6 @@ def generate_jobcard_pdf(html_content: str) -> bytes:
         loop.close()
 
 
-# Status -> (display label, Tailwind text-color utility class)
-_STATUS_DISPLAY = {
-    "job_control":  ("JOB CONTROL", "text-slate-600"),
-    "working":      ("IN-PROGRESS", "text-amber-600"),
-    "ready_for_fi": ("READY FOR FI", "text-orange-600"),
-    "completed":    ("COMPLETED", "text-emerald-600"),
-    "invoiced":     ("INVOICED", "text-blue-600"),
-    "delivered":    ("DELIVERED", "text-green-600"),
-    "cancelled":    ("CANCELLED", "text-rose-600"),
-}
-
-
 def _build_customer_address(customer) -> str:
     if not customer:
         return ""
@@ -159,10 +147,6 @@ def render_jobcard_preview_html(job_card) -> str:
     # ── Terms & conditions / bank details / QR ────────────────────────────────
     settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
 
-    status_label, status_color_class = _STATUS_DISPLAY.get(
-        job_card.status, (job_card.status.upper(), "text-slate-600")
-    )
-
     context = {
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
@@ -176,8 +160,6 @@ def render_jobcard_preview_html(job_card) -> str:
         "doc_number_label": "JOB CARD NO",
         "doc_number": job_card.jobcard_number,
         "date_created": fmt_date(job_card.created_at),
-        "status_label": status_label,
-        "status_color_class": status_color_class,
         "customer_name": customer_name,
         "customer_address": customer_address,
         "customer_gstin": customer_gstin,
@@ -187,6 +169,7 @@ def render_jobcard_preview_html(job_card) -> str:
         "vehicle_vin": vehicle.vin_number if vehicle else "",
         "vehicle_engine_no": vehicle.engine_number if vehicle else "",
         "vehicle_year": vehicle.year if vehicle else "",
+        "vehicle_odo": f"{job_card.km_reading:,} km" if job_card.km_reading else "",
         **lines_ctx,
         "grand_total": fmt_money(job_card.total_amount),
         "notes_label": "Notes:-",
