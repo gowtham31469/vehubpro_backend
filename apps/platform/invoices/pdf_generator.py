@@ -19,6 +19,7 @@ from apps.common.utils.pdf_documents import (
     fmt_date,
     fmt_money,
     split_lines_into_sections,
+    state_name_from_code,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def render_invoice_preview_html(invoice) -> str:
     tenant_address = invoice.tenant_address_snapshot or ""
     tenant_gstin = invoice.tenant_gstin_snapshot or ""
     tenant_phone = ""
+    tenant_alternate_phone = ""
     tenant_email = ""
     invoice_settings = None
     if tenant:
@@ -95,6 +97,8 @@ def render_invoice_preview_html(invoice) -> str:
                     tenant_gstin = pii.get_gstin() or ""
                 if pii.phone_encrypted:
                     tenant_phone = pii.get_phone() or ""
+                if pii.alternate_phone_encrypted:
+                    tenant_alternate_phone = pii.get_alternate_phone() or ""
                 if pii.email_encrypted:
                     tenant_email = pii.get_email() or ""
         except Exception:
@@ -104,6 +108,7 @@ def render_invoice_preview_html(invoice) -> str:
         except Exception:
             invoice_settings = None
     tenant_pan, tenant_state_code = derive_pan_and_state_code(tenant_gstin)
+    tenant_state_name = state_name_from_code(tenant_state_code)
 
     # ── Customer — from the invoice's own immutable PII snapshot, never the
     #     live customer record (which may have changed or been erased since). ──
@@ -139,10 +144,12 @@ def render_invoice_preview_html(invoice) -> str:
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
         "tenant_phone": tenant_phone,
+        "tenant_alternate_phone": tenant_alternate_phone,
         "tenant_email": tenant_email,
         "tenant_gstin": tenant_gstin,
         "tenant_pan": tenant_pan,
         "tenant_state_code": tenant_state_code,
+        "tenant_state_name": tenant_state_name,
         "logo_data_url": _logo_data_url(invoice.tenant_id),
         "doc_type_label": "INVOICE",
         "doc_number_label": "INVOICE NUMBER",

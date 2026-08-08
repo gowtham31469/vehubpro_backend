@@ -34,6 +34,55 @@ def derive_pan_and_state_code(gstin: str | None) -> tuple[str, str]:
     return "", ""
 
 
+# GST state/UT codes (first 2 digits of a GSTIN), per the CBIC jurisdiction list.
+GST_STATE_NAMES = {
+    "01": "Jammu and Kashmir",
+    "02": "Himachal Pradesh",
+    "03": "Punjab",
+    "04": "Chandigarh",
+    "05": "Uttarakhand",
+    "06": "Haryana",
+    "07": "Delhi",
+    "08": "Rajasthan",
+    "09": "Uttar Pradesh",
+    "10": "Bihar",
+    "11": "Sikkim",
+    "12": "Arunachal Pradesh",
+    "13": "Nagaland",
+    "14": "Manipur",
+    "15": "Mizoram",
+    "16": "Tripura",
+    "17": "Meghalaya",
+    "18": "Assam",
+    "19": "West Bengal",
+    "20": "Jharkhand",
+    "21": "Odisha",
+    "22": "Chattisgarh",
+    "23": "Madhya Pradesh",
+    "24": "Gujarat",
+    "25": "Daman and Diu",
+    "26": "Dadra and Nagar Haveli",
+    "27": "Maharashtra",
+    "28": "Andhra Pradesh (Old)",
+    "29": "Karnataka",
+    "30": "Goa",
+    "31": "Lakshadweep",
+    "32": "Kerala",
+    "33": "Tamil Nadu",
+    "34": "Puducherry",
+    "35": "Andaman and Nicobar Islands",
+    "36": "Telangana",
+    "37": "Andhra Pradesh",
+    "38": "Ladakh",
+}
+
+
+def state_name_from_code(state_code: str | None) -> str:
+    """State name for a 2-digit GST state code, or the code itself if unrecognized."""
+    state_code = (state_code or "").strip()
+    return GST_STATE_NAMES.get(state_code, state_code)
+
+
 def fmt_date(dt) -> str:
     if not dt:
         return "—"

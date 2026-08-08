@@ -66,6 +66,8 @@ class TenantPII(BaseModel):
     email_key_version = models.CharField(max_length=16, blank=True, default="")
     phone_encrypted = models.TextField(null=True, blank=True)
     phone_key_version = models.CharField(max_length=16, blank=True, default="")
+    alternate_phone_encrypted = models.TextField(null=True, blank=True)
+    alternate_phone_key_version = models.CharField(max_length=16, blank=True, default="")
 
     is_anonymized = models.BooleanField(default=False)
     anonymized_at = models.DateTimeField(null=True, blank=True)
@@ -100,6 +102,12 @@ class TenantPII(BaseModel):
 
     def get_phone(self) -> str:
         return encryptor.decrypt(self.phone_encrypted, self.phone_key_version)
+
+    def set_alternate_phone(self, value: str) -> None:
+        self.alternate_phone_encrypted, self.alternate_phone_key_version = encryptor.encrypt(value)
+
+    def get_alternate_phone(self) -> str:
+        return encryptor.decrypt(self.alternate_phone_encrypted, self.alternate_phone_key_version)
 
 
 class TenantInvoiceSettings(BaseModel):

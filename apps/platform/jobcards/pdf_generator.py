@@ -23,6 +23,7 @@ from apps.common.utils.pdf_documents import (
     fmt_date,
     fmt_money,
     split_lines_into_sections,
+    state_name_from_code,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,7 @@ def render_jobcard_preview_html(job_card) -> str:
     tenant_name = tenant.name if tenant else "AUTOCARE PRO"
     tenant_address = ""
     tenant_phone = ""
+    tenant_alternate_phone = ""
     tenant_email = ""
     tenant_gstin = ""
     invoice_settings = None
@@ -109,6 +111,8 @@ def render_jobcard_preview_html(job_card) -> str:
                 tenant_address = pii.address or ""
                 if pii.phone_encrypted:
                     tenant_phone = pii.get_phone() or ""
+                if pii.alternate_phone_encrypted:
+                    tenant_alternate_phone = pii.get_alternate_phone() or ""
                 if pii.email_encrypted:
                     tenant_email = pii.get_email() or ""
                 if pii.gstin_encrypted:
@@ -120,6 +124,7 @@ def render_jobcard_preview_html(job_card) -> str:
         except Exception:
             invoice_settings = None
     tenant_pan, tenant_state_code = derive_pan_and_state_code(tenant_gstin)
+    tenant_state_name = state_name_from_code(tenant_state_code)
 
     # ── Customer ─────────────────────────────────────────────────────────────
     customer = job_card.customer
@@ -151,10 +156,12 @@ def render_jobcard_preview_html(job_card) -> str:
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
         "tenant_phone": tenant_phone,
+        "tenant_alternate_phone": tenant_alternate_phone,
         "tenant_email": tenant_email,
         "tenant_gstin": tenant_gstin,
         "tenant_pan": tenant_pan,
         "tenant_state_code": tenant_state_code,
+        "tenant_state_name": tenant_state_name,
         "logo_data_url": _logo_data_url(job_card.tenant_id),
         "doc_type_label": "JOB CARD",
         "doc_number_label": "JOB CARD NO",

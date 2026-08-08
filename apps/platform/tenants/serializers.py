@@ -181,11 +181,13 @@ class TenantPIISerializer(serializers.ModelSerializer):
     contact_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
     phone = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    alternate_phone = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     gstin_value = serializers.SerializerMethodField(read_only=True)
     contact_name_value = serializers.SerializerMethodField(read_only=True)
     email_value = serializers.SerializerMethodField(read_only=True)
     phone_value = serializers.SerializerMethodField(read_only=True)
+    alternate_phone_value = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = TenantPII
@@ -197,10 +199,12 @@ class TenantPIISerializer(serializers.ModelSerializer):
             "contact_name",
             "email",
             "phone",
+            "alternate_phone",
             "gstin_value",
             "contact_name_value",
             "email_value",
             "phone_value",
+            "alternate_phone_value",
             "gstin_hash",
             "is_anonymized",
             "anonymized_at",
@@ -217,6 +221,7 @@ class TenantPIISerializer(serializers.ModelSerializer):
             "contact_name_value",
             "email_value",
             "phone_value",
+            "alternate_phone_value",
         ]
 
     def _safe_get(self, getter):
@@ -237,11 +242,15 @@ class TenantPIISerializer(serializers.ModelSerializer):
     def get_phone_value(self, obj):
         return self._safe_get(obj.get_phone)
 
+    def get_alternate_phone_value(self, obj):
+        return self._safe_get(obj.get_alternate_phone)
+
     def create(self, validated_data):
         gstin = validated_data.pop("gstin", None)
         contact_name = validated_data.pop("contact_name", None)
         email = validated_data.pop("email", None)
         phone = validated_data.pop("phone", None)
+        alternate_phone = validated_data.pop("alternate_phone", None)
 
         instance = TenantPII.objects.create(**validated_data)
         if gstin is not None:
@@ -252,6 +261,8 @@ class TenantPIISerializer(serializers.ModelSerializer):
             instance.set_email(email)
         if phone is not None:
             instance.set_phone(phone)
+        if alternate_phone is not None:
+            instance.set_alternate_phone(alternate_phone)
         instance.save()
         return instance
 
@@ -260,6 +271,7 @@ class TenantPIISerializer(serializers.ModelSerializer):
         contact_name = validated_data.pop("contact_name", None)
         email = validated_data.pop("email", None)
         phone = validated_data.pop("phone", None)
+        alternate_phone = validated_data.pop("alternate_phone", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -271,6 +283,8 @@ class TenantPIISerializer(serializers.ModelSerializer):
             instance.set_email(email)
         if phone is not None:
             instance.set_phone(phone)
+        if alternate_phone is not None:
+            instance.set_alternate_phone(alternate_phone)
         instance.save()
         return instance
 

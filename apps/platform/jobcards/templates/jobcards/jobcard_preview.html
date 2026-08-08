@@ -93,50 +93,52 @@
   <div class="sheet bg-white text-slate-900 shadow-2xl">
 
     <!-- Header -->
-    <header class="avoid-break mb-6 flex items-center gap-8">
-      <div class="flex-1 min-w-0">
-        <h1 class="font-wordmark italic text-3xl font-bold text-slate-900 leading-tight mb-3">{{ tenant_name }}</h1>
-        <div class="space-y-2 text-xs text-slate-800">
-          {% if tenant_phone or tenant_email %}
-          <div class="flex items-center gap-2.5">
-            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-              <span class="material-symbols-outlined" style="font-size: 14px;">call</span>
-            </span>
-            <span class="font-semibold uppercase tracking-wide">{% if tenant_phone %}{{ tenant_phone }}{% endif %}{% if tenant_phone and tenant_email %}, {% endif %}{% if tenant_email %}{{ tenant_email }}{% endif %}</span>
-          </div>
-          {% endif %}
-          {% if tenant_address %}
-          <div class="flex items-start gap-2.5">
-            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-              <span class="material-symbols-outlined" style="font-size: 14px;">location_on</span>
-            </span>
-            <span class="font-semibold uppercase tracking-wide leading-snug">{{ tenant_address|linebreaksbr }}</span>
-          </div>
-          {% endif %}
-          {% if tenant_gstin or tenant_pan %}
-          <div class="flex items-center gap-2.5">
-            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-              <span class="material-symbols-outlined" style="font-size: 14px;">description</span>
-            </span>
-            <span class="font-semibold uppercase tracking-wide">{% if tenant_gstin %}GSTIN : {{ tenant_gstin }}{% endif %}{% if tenant_gstin and tenant_pan %}&nbsp;&nbsp;|&nbsp;&nbsp;{% endif %}{% if tenant_pan %}PAN NO : {{ tenant_pan }}{% endif %}</span>
-          </div>
-          {% endif %}
-          {% if tenant_state_code %}
-          <div class="flex items-center gap-2.5">
-            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-              <span class="material-symbols-outlined" style="font-size: 14px;">assignment</span>
-            </span>
-            <span class="font-semibold uppercase tracking-wide">State Code : {{ tenant_state_code }}</span>
-          </div>
-          {% endif %}
-        </div>
-      </div>
+    <header class="avoid-break mb-6">
       {% if logo_data_url %}
-      <div class="border-l border-slate-300 self-stretch"></div>
-      <div class="flex items-center justify-center flex-shrink-0">
-        <img src="{{ logo_data_url }}" alt="Logo" class="w-28 h-28 object-contain" />
-      </div>
+      <img src="{{ logo_data_url }}" alt="Logo" class="h-20 object-contain mb-3" />
       {% endif %}
+      <div class="space-y-2 text-xs text-slate-800">
+        {% if tenant_phone or tenant_alternate_phone %}
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <span class="material-symbols-outlined" style="font-size: 14px;">call</span>
+          </span>
+          <span class="font-semibold uppercase tracking-wide">{{ tenant_phone }}{% if tenant_phone and tenant_alternate_phone %},&nbsp;{% endif %}{{ tenant_alternate_phone }}</span>
+        </div>
+        {% endif %}
+        {% if tenant_email %}
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <span class="material-symbols-outlined" style="font-size: 14px;">mail</span>
+          </span>
+          <span class="font-semibold uppercase tracking-wide">{{ tenant_email }}</span>
+        </div>
+        {% endif %}
+        {% if tenant_address %}
+        <div class="flex items-start gap-2.5">
+          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <span class="material-symbols-outlined" style="font-size: 14px;">location_on</span>
+          </span>
+          <span class="font-semibold uppercase tracking-wide leading-snug">{{ tenant_address|linebreaksbr }}</span>
+        </div>
+        {% endif %}
+        {% if tenant_gstin or tenant_pan %}
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <span class="material-symbols-outlined" style="font-size: 14px;">description</span>
+          </span>
+          <span class="font-semibold uppercase tracking-wide">{% if tenant_gstin %}GSTIN : {{ tenant_gstin }}{% endif %}{% if tenant_gstin and tenant_pan %}&nbsp;&nbsp;|&nbsp;&nbsp;{% endif %}{% if tenant_pan %}PAN NO : {{ tenant_pan }}{% endif %}</span>
+        </div>
+        {% endif %}
+        {% if tenant_state_name %}
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <span class="material-symbols-outlined" style="font-size: 14px;">assignment</span>
+          </span>
+          <span class="font-semibold uppercase tracking-wide">State : {{ tenant_state_name }}</span>
+        </div>
+        {% endif %}
+      </div>
     </header>
 
     <!-- Document type bar -->
