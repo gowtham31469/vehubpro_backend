@@ -19,6 +19,7 @@ from django.template.loader import render_to_string
 
 from apps.common.utils.pdf_documents import (
     build_invoice_settings_pdf_context,
+    derive_pan_and_state_code,
     fmt_date,
     fmt_money,
     split_lines_into_sections,
@@ -104,21 +105,33 @@ def render_jobcard_preview_html(job_card) -> str:
 
     tenant = job_card.tenant
 
-    # ── Tenant ───────────────────────────────────────────────────────────────
+    # ── Tenant — statutory letterhead details (address, phone, email, GSTIN).
+    #     PAN and state code aren't stored separately; they're substrings of
+    #     the GSTIN itself, per GST's fixed GSTIN format. ────────────────────
     tenant_name = tenant.name if tenant else "AUTOCARE PRO"
     tenant_address = ""
+    tenant_phone = ""
+    tenant_email = ""
+    tenant_gstin = ""
     invoice_settings = None
     if tenant:
         try:
             pii = getattr(tenant, "pii", None)
             if pii:
                 tenant_address = pii.address or ""
+                if pii.phone_encrypted:
+                    tenant_phone = pii.get_phone() or ""
+                if pii.email_encrypted:
+                    tenant_email = pii.get_email() or ""
+                if pii.gstin_encrypted:
+                    tenant_gstin = pii.get_gstin() or ""
         except Exception:
             pass
         try:
             invoice_settings = tenant.invoice_settings
         except Exception:
             invoice_settings = None
+    tenant_pan, tenant_state_code = derive_pan_and_state_code(tenant_gstin)
 
     # ── Customer ─────────────────────────────────────────────────────────────
     customer = job_card.customer
@@ -153,6 +166,11 @@ def render_jobcard_preview_html(job_card) -> str:
     context = {
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
+        "tenant_phone": tenant_phone,
+        "tenant_email": tenant_email,
+        "tenant_gstin": tenant_gstin,
+        "tenant_pan": tenant_pan,
+        "tenant_state_code": tenant_state_code,
         "logo_data_url": _logo_data_url(job_card.tenant_id),
         "doc_type_label": "JOB CARD",
         "doc_number_label": "JOB CARD NO",

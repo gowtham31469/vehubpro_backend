@@ -15,6 +15,7 @@ from django.template.loader import render_to_string
 
 from apps.common.utils.pdf_documents import (
     build_invoice_settings_pdf_context,
+    derive_pan_and_state_code,
     fmt_date,
     fmt_money,
     split_lines_into_sections,
@@ -88,19 +89,29 @@ def render_invoice_preview_html(invoice) -> str:
     #     always read the live address directly. ────────────────────────────
     tenant_name = invoice.tenant_name_snapshot or (tenant.name if tenant else "AUTOCARE PRO")
     tenant_address = invoice.tenant_address_snapshot or ""
+    tenant_gstin = invoice.tenant_gstin_snapshot or ""
+    tenant_phone = ""
+    tenant_email = ""
     invoice_settings = None
     if tenant:
-        if not tenant_address:
-            try:
-                pii = getattr(tenant, "pii", None)
-                if pii:
+        try:
+            pii = getattr(tenant, "pii", None)
+            if pii:
+                if not tenant_address:
                     tenant_address = pii.address or ""
-            except Exception:
-                pass
+                if not tenant_gstin and pii.gstin_encrypted:
+                    tenant_gstin = pii.get_gstin() or ""
+                if pii.phone_encrypted:
+                    tenant_phone = pii.get_phone() or ""
+                if pii.email_encrypted:
+                    tenant_email = pii.get_email() or ""
+        except Exception:
+            pass
         try:
             invoice_settings = tenant.invoice_settings
         except Exception:
             invoice_settings = None
+    tenant_pan, tenant_state_code = derive_pan_and_state_code(tenant_gstin)
 
     # ── Customer — from the invoice's own immutable PII snapshot, never the
     #     live customer record (which may have changed or been erased since). ──
@@ -139,6 +150,11 @@ def render_invoice_preview_html(invoice) -> str:
     context = {
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
+        "tenant_phone": tenant_phone,
+        "tenant_email": tenant_email,
+        "tenant_gstin": tenant_gstin,
+        "tenant_pan": tenant_pan,
+        "tenant_state_code": tenant_state_code,
         "logo_data_url": _logo_data_url(invoice.tenant_id),
         "doc_type_label": "INVOICE",
         "doc_number_label": "INVOICE NUMBER",

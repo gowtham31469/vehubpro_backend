@@ -22,6 +22,18 @@ def fmt_pct(value: Decimal) -> str:
     return text or "0"
 
 
+def derive_pan_and_state_code(gstin: str | None) -> tuple[str, str]:
+    """
+    A GSTIN is: 2-digit state code + 10-char PAN + 1 entity code + 1 check
+    digit + a default 'Z' (15 chars total) — so PAN and state code are just
+    substrings of the GSTIN, not separately stored data.
+    """
+    gstin = (gstin or "").strip()
+    if len(gstin) >= 12:
+        return gstin[2:12], gstin[:2]
+    return "", ""
+
+
 def fmt_date(dt) -> str:
     if not dt:
         return "—"
