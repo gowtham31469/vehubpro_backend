@@ -4,9 +4,9 @@ JobCardPdfService — generate an operational PDF job card and persist it to sto
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import logging
-import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -33,9 +33,43 @@ class PdfNotAvailableError(Exception):
 
 # ── Storage helpers ───────────────────────────────────────────────────────────
 
-def _build_pdf_key(tenant_id: str, jobcard_id: str, jobcard_number: str) -> str:
+def _build_pdf_key(tenant_id: str, jobcard_id: str, jobcard_number: str, content_hash: str) -> str:
     safe_num = jobcard_number.replace("/", "-").replace(" ", "_")
-    return f"jobcard_pdfs/{tenant_id}/{jobcard_id}/{safe_num}_{uuid.uuid4().hex[:8]}.pdf"
+    return f"jobcard_pdfs/{tenant_id}/{jobcard_id}/{safe_num}_{content_hash}.pdf"
+
+
+def _purge_pdf_folder(tenant_id: str, jobcard_id: str) -> None:
+    """Delete every file in this job card's PDF folder.
+
+    Regenerating writes a new content-hashed filename each time, so relying on
+    the single tracked ``pdf_key`` misses any file left behind before that field
+    existed (or from a previous bug). Clearing the whole folder guarantees only
+    the file we're about to write survives, regardless of history.
+    """
+    folder = f"jobcard_pdfs/{tenant_id}/{jobcard_id}/"
+    backend = getattr(settings, "STORAGE_TYPE", "LOCAL").strip().upper()
+
+    if backend == "LOCAL":
+        from pathlib import Path
+        dest = Path(settings.MEDIA_ROOT) / folder
+        if dest.is_dir():
+            for f in dest.glob("*.pdf"):
+                try:
+                    f.unlink()
+                except OSError:
+                    logger.warning("Could not delete stale job card PDF %s", f, exc_info=True)
+
+    elif backend == "S3":
+        try:
+            from core.storage.s3_backend import _client
+            client = _client()
+            bucket = settings.AWS_STORAGE_BUCKET_NAME
+            resp = client.list_objects_v2(Bucket=bucket, Prefix=folder)
+            keys = [obj["Key"] for obj in resp.get("Contents", [])]
+            if keys:
+                client.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": k} for k in keys]})
+        except Exception:
+            logger.warning("Could not purge S3 job card PDF folder %s", folder, exc_info=True)
 
 
 def _store_pdf_bytes(pdf_bytes: bytes, relative_key: str) -> str:
@@ -291,7 +325,15 @@ class JobCardPdfService:
         browser, so Tailwind/Google Fonts/icon fonts work exactly as in the web
         preview) and falls back to WeasyPrint + ``jobcard_pdf.html`` if
         Playwright isn't installed.
+
+        Mirrors ``InvoicePdfService.generate_and_store``: reuses the cached PDF
+        when one already exists and ``force`` is False, and purges the entire
+        PDF folder before writing a new one so only the latest PDF is retained
+        (including any file left over from before ``pdf_key`` existed).
         """
+        if job_card.pdf_key and not force:
+            return job_card.pdf_key
+
         try:
             from apps.platform.jobcards.pdf_generator import (
                 render_jobcard_preview_html,
@@ -320,18 +362,31 @@ class JobCardPdfService:
             logger.exception("PDF generation failed for JobCard %s", job_card.jobcard_number)
             raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
 
+        content_hash = hashlib.sha256(pdf_bytes).hexdigest()[:8]
         relative_key = _build_pdf_key(
             str(job_card.tenant_id),
             str(job_card.id),
             job_card.jobcard_number,
+            content_hash,
         )
+
+        # Purge the whole folder (not just the tracked pdf_key) so any file left
+        # behind from before pdf_key existed, or from a prior bug, doesn't linger.
+        _purge_pdf_folder(str(job_card.tenant_id), str(job_card.id))
 
         try:
             stored_key = _store_pdf_bytes(pdf_bytes, relative_key)
-            return stored_key
         except Exception as exc:
             logger.exception("PDF storage failed for JobCard %s", job_card.jobcard_number)
             raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
+
+        from apps.platform.jobcards.models import JobCard as JobCardModel
+        JobCardModel.objects.filter(pk=job_card.pk).update(
+            pdf_key=stored_key,
+            updated_at=timezone.now(),
+        )
+        job_card.pdf_key = stored_key
+        return stored_key
 
     @staticmethod
     def resolve_url(pdf_key: str | None) -> str | None:

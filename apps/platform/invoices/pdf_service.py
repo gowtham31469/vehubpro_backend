@@ -41,9 +41,9 @@ GST (CGST Act 2017):
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import logging
-import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -70,9 +70,43 @@ class PdfNotAvailableError(Exception):
 
 # ── Storage helpers ───────────────────────────────────────────────────────────
 
-def _build_pdf_key(tenant_id: str, invoice_id: str, invoice_number: str) -> str:
+def _build_pdf_key(tenant_id: str, invoice_id: str, invoice_number: str, content_hash: str) -> str:
     safe_num = invoice_number.replace("/", "-").replace(" ", "_")
-    return f"invoice_pdfs/{tenant_id}/{invoice_id}/{safe_num}_{uuid.uuid4().hex[:8]}.pdf"
+    return f"invoice_pdfs/{tenant_id}/{invoice_id}/{safe_num}_{content_hash}.pdf"
+
+
+def _purge_pdf_folder(tenant_id: str, invoice_id: str) -> None:
+    """Delete every file in this invoice's PDF folder.
+
+    Regenerating writes a new content-hashed filename each time, so relying on
+    the single tracked ``pdf_key`` misses any file left behind before that field
+    existed (or from a previous bug). Clearing the whole folder guarantees only
+    the file we're about to write survives, regardless of history.
+    """
+    folder = f"invoice_pdfs/{tenant_id}/{invoice_id}/"
+    backend = getattr(settings, "STORAGE_TYPE", "LOCAL").strip().upper()
+
+    if backend == "LOCAL":
+        from pathlib import Path
+        dest = Path(settings.MEDIA_ROOT) / folder
+        if dest.is_dir():
+            for f in dest.glob("*.pdf"):
+                try:
+                    f.unlink()
+                except OSError:
+                    logger.warning("Could not delete stale invoice PDF %s", f, exc_info=True)
+
+    elif backend == "S3":
+        try:
+            from core.storage.s3_backend import _client
+            client = _client()
+            bucket = settings.AWS_STORAGE_BUCKET_NAME
+            resp = client.list_objects_v2(Bucket=bucket, Prefix=folder)
+            keys = [obj["Key"] for obj in resp.get("Contents", [])]
+            if keys:
+                client.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": k} for k in keys]})
+        except Exception:
+            logger.warning("Could not purge S3 invoice PDF folder %s", folder, exc_info=True)
 
 
 def _store_pdf_bytes(pdf_bytes: bytes, relative_key: str) -> str:
@@ -346,7 +380,8 @@ class InvoicePdfService:
             Must have ``line_items`` prefetched (or be acceptable to hit the DB).
         force : bool
             Regenerate even if ``pdf_key`` is already set (e.g. after a payment
-            status update). The old file is deleted from storage first.
+            status update). The whole PDF folder is purged before the new file
+            is written, so only the latest PDF is ever retained.
 
         Returns
         -------
@@ -355,16 +390,6 @@ class InvoicePdfService:
         """
         if invoice.pdf_key and not force:
             return invoice.pdf_key
-
-        # Delete old file if regenerating
-        if invoice.pdf_key and force:
-            try:
-                from core.storage.resolve import delete_stored_media
-                delete_stored_media(invoice.pdf_key)
-            except Exception:
-                logger.warning(
-                    "Could not delete old PDF %s before regeneration", invoice.pdf_key
-                )
 
         try:
             from apps.platform.invoices.pdf_generator import (
@@ -398,11 +423,17 @@ class InvoicePdfService:
             logger.exception("PDF generation failed for invoice %s", invoice.invoice_number)
             raise PdfGenerationError(f"PDF generation failed: {exc}") from exc
 
+        content_hash = hashlib.sha256(pdf_bytes).hexdigest()[:8]
         relative_key = _build_pdf_key(
             str(invoice.tenant_id),
             str(invoice.id),
             invoice.invoice_number,
+            content_hash,
         )
+
+        # Purge the whole folder (not just the tracked pdf_key) so any file left
+        # behind from before pdf_key existed, or from a prior bug, doesn't linger.
+        _purge_pdf_folder(str(invoice.tenant_id), str(invoice.id))
 
         try:
             stored_key = _store_pdf_bytes(pdf_bytes, relative_key)

@@ -150,6 +150,17 @@ class JobCard(BaseModel):
         help_text="Recommended next service details; set when status changes to Job Completed.",
     )
 
+    # ── PDF storage ───────────────────────────────────────────────────────────
+    # Relative MEDIA_ROOT path (LOCAL) or S3 object key. Mirrors Invoice.pdf_key —
+    # the old file is deleted before a new one is stored, so only the latest
+    # generated PDF is ever retained.
+    pdf_key = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative path (LOCAL) or S3 object key for the generated job card PDF.",
+    )
+
     class Meta:
         db_table = "job_cards"
         ordering = ["-created_at", "-jobcard_number"]
