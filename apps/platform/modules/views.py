@@ -4,7 +4,9 @@ from rest_framework.views import APIView
 
 from rest_framework.permissions import IsAuthenticated
 
-from apps.platform.modules.models import Module, Submodule, Permission, TenantModule
+from apps.platform.modules.models import (
+    Module, Submodule, Permission, TenantModule, UserSubmodulePermission,
+)
 from apps.platform.modules.permissions import IsSuperAdminRole
 from apps.platform.modules.serializers import (
     ModuleSerializer,
@@ -228,17 +230,29 @@ class UserModuleNavAPIView(APIView):
             .values_list("module_id", flat=True)
         )
 
+        # Nav is strictly permission-driven: only submodules the user has an
+        # explicit, active UserSubmodulePermission grant for are shown, and
+        # only modules that still have at least one visible submodule.
+        allowed_submodule_ids = set(
+            UserSubmodulePermission.objects.filter(
+                user=request.user, tenant_id=tenant_id, is_active=True,
+            ).values_list("submodule_permission__submodule_id", flat=True)
+        )
+
         modules = Module.objects.filter(
             id__in=list(module_ids),
             is_archived=False,
             is_active=True,
-        ).prefetch_related("submodules").order_by("id")
+            submodules__id__in=allowed_submodule_ids,
+        ).prefetch_related("submodules").order_by("id").distinct()
 
         return success_response(
             request,
             code="DATA_RETRIEVED",
             message="User nav modules retrieved.",
-            data=NavModuleSerializer(modules, many=True).data,
+            data=NavModuleSerializer(
+                modules, many=True, context={"allowed_submodule_ids": allowed_submodule_ids}
+            ).data,
             status_code=status.HTTP_200_OK,
         )
 
@@ -283,6 +297,49 @@ class TenantModulePermissionsAPIView(APIView):
             "submodules",
             "submodules__permissions",
             "submodules__permissions__permission"
+        ).order_by("name")
+
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Tenant permission hierarchy retrieved.",
+            data=ModuleDetailSerializer(queryset, many=True).data,
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class TenantPortalModulePermissionsAPIView(APIView):
+    """
+    Same Module -> Submodule -> SubmodulePermission hierarchy as
+    TenantModulePermissionsAPIView, but scoped to the authenticated user's own
+    tenant instead of a query-param tenant_id. Used by the tenant portal's User
+    Management screen to render the permission-assignment checkbox tree.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = getattr(request.user, "tenant_id", None)
+        if not tenant_id:
+            return success_response(
+                request,
+                code="TENANT_CONTEXT_MISSING",
+                message="User is not mapped to a tenant.",
+                data=[],
+                status_code=status.HTTP_200_OK,
+            )
+
+        assigned_module_ids = TenantModule.objects.filter(
+            tenant_id=tenant_id
+        ).values_list("module_id", flat=True)
+
+        queryset = Module.objects.filter(
+            id__in=list(assigned_module_ids),
+            is_archived=False,
+            is_active=True,
+        ).prefetch_related(
+            "submodules",
+            "submodules__permissions",
+            "submodules__permissions__permission",
         ).order_by("name")
 
         return success_response(

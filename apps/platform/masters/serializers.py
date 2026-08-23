@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from apps.platform.masters.models import City, State
+from apps.platform.masters.models import City, Role, State
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ["id", "code", "name", "description"]
 
 
 class StateSerializer(serializers.ModelSerializer):

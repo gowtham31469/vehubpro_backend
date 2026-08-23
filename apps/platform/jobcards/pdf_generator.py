@@ -149,8 +149,9 @@ def render_jobcard_preview_html(job_card) -> str:
         cgst_sgst_fn=_stored_cgst_sgst,
     )
 
-    # ── Terms & conditions / bank details / QR ────────────────────────────────
+    # ── Bank details / QR (terms & conditions are invoice-only, not shown on job cards) ──
     settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
+    settings_ctx["terms_paragraphs"] = []
 
     context = {
         "tenant_name": tenant_name,

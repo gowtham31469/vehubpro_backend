@@ -173,7 +173,7 @@ def build_invoice_settings_pdf_context(invoice_settings, media_data_url_fn) -> d
     qr_data_url = None
 
     if invoice_settings:
-        if invoice_settings.terms_and_conditions:
+        if invoice_settings.terms_and_conditions and invoice_settings.show_terms_and_conditions:
             raw = invoice_settings.render_terms_and_conditions().replace("\r\n", "\n")
             terms_paragraphs = [p.strip() for p in raw.split("\n\n") if p.strip()]
 

@@ -143,6 +143,10 @@ class TenantInvoiceSettings(BaseModel):
             "substituted with the values below when rendering the PDF."
         ),
     )
+    show_terms_and_conditions = models.BooleanField(
+        default=True,
+        help_text="When off, the Terms & Conditions section is omitted from invoice PDFs regardless of the text above.",
+    )
 
     # ── Terms & conditions template variables ────────────────────────────
     currency_symbol = models.CharField(max_length=5, blank=True, default="₹")

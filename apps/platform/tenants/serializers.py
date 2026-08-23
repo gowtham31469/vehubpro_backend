@@ -316,6 +316,7 @@ class TenantInvoiceSettingsSerializer(serializers.ModelSerializer):
             "qr_code_file",
             "qr_code_url",
             "terms_and_conditions",
+            "show_terms_and_conditions",
             "currency_symbol",
             "advance_payment_percentage",
             "estimate_charge_percentage",

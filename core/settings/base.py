@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.platform.services",
     "apps.platform.jobcards",
     "apps.platform.invoices",
+    "apps.platform.portfolio",
     "apps.platform.dashboard",
     "apps.consent",
     "apps.portal",
@@ -149,6 +150,9 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
 TENANT_DOMAIN_SUFFIX = env.str("TENANT_DOMAIN_SUFFIX", default="vehubpro.com")
 CORS_ALLOWED_ORIGIN_REGEXES = env.list("CORS_ALLOWED_ORIGIN_REGEXES", default=[
     rf"^https://([a-z0-9-]+\.)?{re.escape(TENANT_DOMAIN_SUFFIX)}$",
+    # Local dev: tenant subdomains of localhost (e.g. http://mrcars.localhost:5173),
+    # used to test subdomain-resolved public pages like /portfolio.
+    r"^http://([a-z0-9-]+\.)?localhost:(5173|5174)$",
 ])
 CORS_ALLOW_CREDENTIALS = True
 

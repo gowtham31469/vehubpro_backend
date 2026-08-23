@@ -81,5 +81,9 @@ class NavModuleSerializer(serializers.ModelSerializer):
         fields = ["id", "key", "name", "submodules"]
 
     def get_submodules(self, obj):
-        qs = obj.submodules.filter(is_archived=False, is_active=True).order_by("id")
+        qs = obj.submodules.filter(is_archived=False, is_active=True)
+        allowed_submodule_ids = self.context.get("allowed_submodule_ids")
+        if allowed_submodule_ids is not None:
+            qs = qs.filter(id__in=allowed_submodule_ids)
+        qs = qs.order_by("id")
         return NavSubmoduleSerializer(qs, many=True).data

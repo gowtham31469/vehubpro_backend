@@ -8,6 +8,7 @@ from apps.platform.modules.views import (
     TenantModuleListCreateAPIView,
     TenantModuleDetailAPIView,
     TenantModulePermissionsAPIView,
+    TenantPortalModulePermissionsAPIView,
     UserModuleNavAPIView,
 )
 
@@ -16,6 +17,11 @@ urlpatterns = [
     path("me/", UserModuleNavAPIView.as_view(), name="user-module-nav"),
     path("permissions/", PermissionListAPIView.as_view(), name="permission-list"),
     path("tenant-permissions/", TenantModulePermissionsAPIView.as_view(), name="tenant-permission-list"),
+    path(
+        "my-tenant-permissions/",
+        TenantPortalModulePermissionsAPIView.as_view(),
+        name="tenant-portal-permission-list",
+    ),
     path("assignments/", TenantModuleListCreateAPIView.as_view(), name="tenant-module-list-create"),
     path("assignments/<uuid:pk>/", TenantModuleDetailAPIView.as_view(), name="tenant-module-detail"),
     path("<uuid:pk>/", ModuleDetailAPIView.as_view(), name="module-detail"),

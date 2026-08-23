@@ -28,6 +28,7 @@ urlpatterns += [
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("core.auth.urls")),
     path("api/v1/public/", include("apps.platform.tenants.public_urls")),
+    path("api/v1/public/portfolio/", include("apps.platform.portfolio.public_urls")),
     path("api/v1/billing/", include("apps.platform.billing.urls")),
     path("api/v1/tenants/", include("apps.platform.tenants.urls")),
     path("api/v1/users/", include("apps.platform.users.urls")),
@@ -37,6 +38,7 @@ urlpatterns += [
     path("api/v1/services/", include("apps.platform.services.urls")),
     path("api/v1/job-cards/", include("apps.platform.jobcards.urls")),
     path("api/v1/invoices/", include("apps.platform.invoices.urls")),
+    path("api/v1/portfolio/", include("apps.platform.portfolio.urls")),
     path("api/v1/dashboard/", include("apps.platform.dashboard.urls")),
     path("api/v1/modules/", include("apps.platform.modules.urls")),
     # Superadmin SPA static assets (Vite build output)
