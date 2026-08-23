@@ -46,7 +46,7 @@ async def generate_invoice_pdf_async(html_content: str) -> bytes:
             await page.set_content(html_content, wait_until="networkidle")
             pdf_bytes = await page.pdf(
                 format="A4",
-                margin={"top": "14mm", "right": "16mm", "bottom": "14mm", "left": "16mm"},
+                margin={"top": "6mm", "right": "16mm", "bottom": "14mm", "left": "16mm"},
                 print_background=True,
             )
             return pdf_bytes
