@@ -94,10 +94,14 @@ class Invoice(BaseModel):
         on_delete=models.PROTECT,
         related_name="invoices",
     )
-    job_card = models.OneToOneField(
+    # A ForeignKey, not OneToOne — a job card keeps at most one *active*
+    # (non-cancelled) invoice at a time (enforced in InvoiceService.generate),
+    # but a cancelled invoice is never deleted, so re-invoicing the same job
+    # card after a cancellation creates a second row rather than being blocked.
+    job_card = models.ForeignKey(
         "jobcards.JobCard",
         on_delete=models.PROTECT,
-        related_name="invoice",
+        related_name="invoices",
     )
     invoice_number = models.CharField(max_length=32, db_index=True)
     fy_code = models.CharField(max_length=5)
@@ -162,6 +166,21 @@ class Invoice(BaseModel):
         db_index=True,
     )
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # ── Cancellation ───────────────────────────────────────────────────────────
+    # A cancelled invoice is never deleted (GST retention requirements) — it's
+    # flagged so the PDF renders a CANCELLED stamp and the record is excluded
+    # from "active" totals, while remaining fully auditable.
+    is_cancelled = models.BooleanField(default=False, db_index=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cancelled_invoices",
+    )
+    cancellation_reason = models.TextField(blank=True, default="")
 
     # ── Notes ─────────────────────────────────────────────────────────────────
     notes = models.TextField(blank=True, default="")

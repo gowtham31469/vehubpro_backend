@@ -61,6 +61,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
 
     balance_due = serializers.SerializerMethodField()
     pdf_url = serializers.SerializerMethodField()
+    cancelled_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -83,11 +84,23 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "amount_paid",
             "balance_due",
             "is_pii_erased",
+            "is_cancelled",
+            "cancelled_at",
+            "cancellation_reason",
+            "cancelled_by_name",
             "pdf_url",
             "created_at",
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_cancelled_by_name(self, obj) -> str | None:
+        if not obj.cancelled_by_id:
+            return None
+        try:
+            return obj.cancelled_by.pii.get_full_name()
+        except Exception:
+            return str(obj.cancelled_by_id)
 
     def get_balance_due(self, obj) -> str:
         balance = max(Decimal("0"), Decimal(str(obj.total_amount)) - Decimal(str(obj.amount_paid)))
@@ -163,6 +176,10 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
             "amount_paid",
             "balance_due",
             "is_pii_erased",
+            "is_cancelled",
+            "cancelled_at",
+            "cancellation_reason",
+            "cancelled_by_name",
             "pdf_url",
             "created_at",
             "updated_at",
@@ -217,6 +234,12 @@ class GenerateInvoiceSerializer(serializers.Serializer):
     """Input for POST /job-cards/{id}/generate-invoice/ — no body required, but accepts optional notes."""
 
     notes = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+
+
+class CancelInvoiceSerializer(serializers.Serializer):
+    """Input for PATCH /invoices/{id}/cancel/ — no body required, but accepts an optional reason."""
+
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=1000)
 
 
 class RecordPaymentSerializer(serializers.Serializer):

@@ -44,6 +44,14 @@ class InvalidJobCardStatus(InvoiceError):
     """Raised when the job card is not in the 'completed' state."""
 
 
+class InvoiceAlreadyCancelled(InvoiceError):
+    """Raised when attempting to cancel an invoice that is already cancelled."""
+
+
+class InvoiceHasPayments(InvoiceError):
+    """Raised when attempting to cancel an invoice that has recorded payments."""
+
+
 def _allocate_invoice_number(tenant_id) -> tuple[str, str, int]:
     """
     Thread-safe invoice number allocation inside an atomic block.
@@ -146,9 +154,11 @@ class InvoiceService:
             )
 
         # ── Idempotency guard ─────────────────────────────────────────────────
-        if Invoice.objects.filter(job_card=job_card).exists():
+        # Only an *active* (non-cancelled) invoice blocks re-generation — a
+        # cancelled invoice stays on record but no longer occupies this slot.
+        if Invoice.objects.filter(job_card=job_card, is_cancelled=False).exists():
             raise InvoiceAlreadyExists(
-                f"An invoice already exists for job card '{job_card.jobcard_number}'."
+                f"An active invoice already exists for job card '{job_card.jobcard_number}'."
             )
 
         # ── Prefetch related objects needed for snapshots ─────────────────────
@@ -342,4 +352,65 @@ class InvoiceService:
                     "Could not delete PDF %s during PII erasure for invoice %s",
                     old_pdf_key, invoice.pk,
                 )
+        return invoice
+
+    @staticmethod
+    @transaction.atomic
+    def cancel(invoice: Invoice, *, cancelled_by, reason: str = "") -> Invoice:
+        """
+        Void an invoice without deleting it (GST retention requirements).
+
+        The invoice row, its line items, and its number all remain — only
+        `is_cancelled`/`cancelled_at`/`cancelled_by`/`cancellation_reason` change,
+        so the PDF can render a CANCELLED stamp and it's excluded from active
+        totals while staying fully auditable.
+
+        The linked job card (if still 'invoiced') is reverted to 'completed' so
+        the tenant can generate a fresh invoice for it if needed.
+
+        Raises
+        ------
+        InvoiceAlreadyCancelled
+            If the invoice is already cancelled.
+        InvoiceHasPayments
+            If any payment has been recorded against this invoice — cancel the
+            payment(s) first (not supported by this service) before voiding.
+        """
+        if invoice.is_cancelled:
+            raise InvoiceAlreadyCancelled(f"Invoice '{invoice.invoice_number}' is already cancelled.")
+
+        if invoice.amount_paid and Decimal(str(invoice.amount_paid)) > 0:
+            raise InvoiceHasPayments(
+                f"Invoice '{invoice.invoice_number}' has payments recorded against it and cannot be cancelled."
+            )
+
+        now = timezone.now()
+        # Clear the cached PDF (if any) so the next download regenerates it with
+        # the CANCELLED stamp instead of silently serving the stale pre-cancel file.
+        old_pdf_key = invoice.pdf_key
+        Invoice.objects.filter(pk=invoice.pk).update(
+            is_cancelled=True,
+            cancelled_at=now,
+            cancelled_by=cancelled_by,
+            cancellation_reason=reason or "",
+            pdf_key=None,
+            updated_at=now,
+        )
+        if old_pdf_key:
+            try:
+                from core.storage.resolve import delete_stored_media
+                delete_stored_media(old_pdf_key)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Could not delete stale PDF %s while cancelling invoice %s",
+                    old_pdf_key, invoice.pk,
+                )
+
+        JobCard.objects.filter(pk=invoice.job_card_id, status=JobCard.STATUS_INVOICED).update(
+            status=JobCard.STATUS_COMPLETED,
+            updated_at=now,
+        )
+
+        invoice.refresh_from_db()
         return invoice

@@ -169,6 +169,9 @@ def render_invoice_preview_html(invoice) -> str:
         "grand_total": fmt_money(invoice.total_amount),
         "notes_label": "Next Service Recommendation:-",
         "notes": invoice.next_service_recommendation or "",
+        "is_cancelled": invoice.is_cancelled,
+        "cancelled_at": fmt_date(invoice.cancelled_at) if invoice.cancelled_at else "",
+        "cancellation_reason": invoice.cancellation_reason or "",
         **settings_ctx,
     }
 

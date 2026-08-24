@@ -29,13 +29,16 @@ from rest_framework.views import APIView
 from apps.platform.invoices.models import Invoice
 from apps.platform.invoices.permissions import IsAuthenticatedInvoiceAccess
 from apps.platform.invoices.serializers import (
+    CancelInvoiceSerializer,
     GenerateInvoiceSerializer,
     InvoiceDetailSerializer,
     InvoiceListSerializer,
     RecordPaymentSerializer,
 )
 from apps.platform.invoices.service import (
+    InvoiceAlreadyCancelled,
     InvoiceAlreadyExists,
+    InvoiceHasPayments,
     InvalidJobCardStatus,
     InvoiceService,
 )
@@ -360,6 +363,72 @@ class RecordPaymentAPIView(APIView):
         )
 
 
+# ── Cancel invoice ────────────────────────────────────────────────────────────
+
+class InvoiceCancelAPIView(APIView):
+    """
+    PATCH /api/v1/invoices/{id}/cancel/
+
+    Voids an invoice without deleting it (GST retention requirements). The
+    linked job card, if still 'invoiced', reverts to 'completed' so a fresh
+    invoice can be generated for it later.
+
+    Request body (optional JSON):
+        { "reason": "..." }
+
+    Responses:
+        200  Invoice cancelled — returns full invoice detail.
+        400  Invoice already cancelled, has payments recorded, or tenant context missing.
+        404  Invoice not found (or belongs to a different tenant).
+    """
+
+    permission_classes = [IsAuthenticatedInvoiceAccess]
+
+    def patch(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("job_card"),
+            pk=pk,
+            tenant_id=tenant_id,
+        )
+
+        serializer = CancelInvoiceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        try:
+            invoice = InvoiceService.cancel(invoice, cancelled_by=request.user, reason=reason)
+        except InvoiceAlreadyCancelled as exc:
+            return error_response(
+                request,
+                code="INVOICE_ALREADY_CANCELLED",
+                message=str(exc),
+                error="This invoice has already been cancelled.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except InvoiceHasPayments as exc:
+            return error_response(
+                request,
+                code="INVOICE_HAS_PAYMENTS",
+                message=str(exc),
+                error="Invoices with recorded payments cannot be cancelled.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        _log_cancel(request, invoice, reason)
+
+        return success_response(
+            request,
+            code="INVOICE_CANCELLED",
+            message=f"Invoice {invoice.invoice_number} cancelled successfully.",
+            data=InvoiceDetailSerializer(invoice).data,
+            status_code=status.HTTP_200_OK,
+        )
+
+
 # ── PDF download ─────────────────────────────────────────────────────────────
 
 class InvoicePdfAPIView(APIView):
@@ -454,6 +523,24 @@ def _log_pii_access(request, invoice: Invoice) -> None:
             method=request.method,
             endpoint=request.path,
             after={"invoice_id": str(invoice.pk), "invoice_number": invoice.invoice_number},
+        )
+    except Exception:
+        pass
+
+
+def _log_cancel(request, invoice: Invoice, reason: str) -> None:
+    """Write an INVOICE_CANCELLED audit event. Swallowed on failure so it never breaks the response."""
+    try:
+        from core.audit.service import log_audit_event
+        log_audit_event(
+            actor_id=str(request.user.pk),
+            actor_type="user",
+            action="INVOICE_CANCELLED",
+            module="INVOICE",
+            ip_address=_get_client_ip(request),
+            method=request.method,
+            endpoint=request.path,
+            after={"invoice_id": str(invoice.pk), "invoice_number": invoice.invoice_number, "reason": reason},
         )
     except Exception:
         pass
