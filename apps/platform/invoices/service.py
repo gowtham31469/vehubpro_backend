@@ -28,6 +28,7 @@ from django.db import transaction, models
 from django.utils import timezone
 
 from apps.common.encryption.pii import encryptor
+from apps.common.utils.pdf_documents import compute_round_off
 from apps.platform.invoices.models import Invoice, InvoiceFySequence, InvoiceLineItem, InvoicePayment
 from apps.platform.jobcards.models import JobCard, indian_fy_code
 
@@ -52,21 +53,33 @@ class InvoiceHasPayments(InvoiceError):
     """Raised when attempting to cancel an invoice that has recorded payments."""
 
 
-def _allocate_invoice_number(tenant_id) -> tuple[str, str, int]:
+_INVOICE_NUMBER_PREFIXES = {
+    Invoice.INVOICE_TYPE_GST: "INV",
+    Invoice.INVOICE_TYPE_NON_GST: "INV-NGST",
+}
+
+
+def _allocate_invoice_number(tenant_id, invoice_type: str) -> tuple[str, str, int]:
     """
     Thread-safe invoice number allocation inside an atomic block.
     Returns (invoice_number, fy_code, sequence_no).
     Must be called within an active transaction.atomic() context.
+
+    GST and Non-GST invoices are numbered from independent counters (see
+    InvoiceFySequence's unique constraint on (tenant, fy_code, invoice_type)) —
+    generating one type never advances the other's sequence.
     """
     fy = indian_fy_code(timezone.now().date())
     row, _ = InvoiceFySequence.objects.select_for_update().get_or_create(
         tenant_id=tenant_id,
         fy_code=fy,
+        invoice_type=invoice_type,
         defaults={"last_seq": 0},
     )
     row.last_seq += 1
     row.save(update_fields=["last_seq", "updated_at"])
-    invoice_number = f"INV/{fy}/{row.last_seq:05d}"
+    prefix = _INVOICE_NUMBER_PREFIXES[invoice_type]
+    invoice_number = f"{prefix}/{fy}/{row.last_seq:05d}"
     return invoice_number, fy, row.last_seq
 
 
@@ -123,16 +136,25 @@ class InvoiceService:
 
     @staticmethod
     @transaction.atomic
-    def generate(job_card: JobCard, issued_by) -> Invoice:
+    def generate(job_card: JobCard, issued_by, invoice_type: str = Invoice.INVOICE_TYPE_GST) -> Invoice:
         """
-        Convert a completed JobCard into an immutable GST Invoice.
+        Convert a completed JobCard into an immutable Invoice.
 
         Parameters
         ----------
         job_card : JobCard
-            Must be in 'completed' status and must not already have an invoice.
+            Must be in 'completed' status and must not already have an active invoice.
         issued_by : User
             The authenticated user triggering the generation (logged as invoice issuer).
+        invoice_type : str
+            Invoice.INVOICE_TYPE_GST (default) or Invoice.INVOICE_TYPE_NON_GST — decided
+            once here and immutable afterward. GST invoices carry the job card's tax
+            amounts verbatim; Non-GST invoices zero out CGST/SGST/IGST (on both the
+            invoice header and every line item) and recompute total_amount without
+            tax. The job card itself is never modified — it stays the source of truth
+            for the real service record regardless of how it's later invoiced. GST and
+            Non-GST invoices are numbered from independent sequences (see
+            _allocate_invoice_number).
 
         Returns
         -------
@@ -144,7 +166,7 @@ class InvoiceService:
         InvalidJobCardStatus
             If job_card.status != 'completed'.
         InvoiceAlreadyExists
-            If an Invoice already exists for this job card.
+            If an active Invoice already exists for this job card.
         """
         # ── Status gate ───────────────────────────────────────────────────────
         if job_card.status != JobCard.STATUS_COMPLETED:
@@ -171,8 +193,26 @@ class InvoiceService:
         vehicle = job_card.vehicle
         tenant = job_card.tenant
 
-        # ── Allocate invoice number (sequence locked) ─────────────────────────
-        invoice_number, fy_code, sequence_no = _allocate_invoice_number(job_card.tenant_id)
+        # ── Allocate invoice number (sequence locked, per invoice_type) ───────
+        invoice_number, fy_code, sequence_no = _allocate_invoice_number(job_card.tenant_id, invoice_type)
+
+        # ── Financial totals — GST copies the job card verbatim; Non-GST drops
+        #     the tax terms and recomputes the total without them. ────────────
+        is_gst = invoice_type == Invoice.INVOICE_TYPE_GST
+        if is_gst:
+            # Job card total_amount/round_off_amount are already rounded/computed
+            # by refresh_job_card_totals — copy verbatim, same as the other totals.
+            cgst_amount = job_card.cgst_amount
+            sgst_amount = job_card.sgst_amount
+            igst_amount = job_card.igst_amount
+            total_amount = job_card.total_amount
+            round_off_amount = job_card.round_off_amount
+        else:
+            cgst_amount = Decimal("0.00")
+            sgst_amount = Decimal("0.00")
+            igst_amount = Decimal("0.00")
+            exact_total = job_card.subtotal - job_card.discount_amount + job_card.shop_fees
+            total_amount, round_off_amount = compute_round_off(exact_total)
 
         # ── Encrypt customer PII snapshot ─────────────────────────────────────
         name_enc, name_kv = _encrypt_pii(customer.full_name)
@@ -200,6 +240,7 @@ class InvoiceService:
             invoice_number=invoice_number,
             fy_code=fy_code,
             sequence_no=sequence_no,
+            invoice_type=invoice_type,
             issued_by=issued_by,
             # PII snapshots
             customer_name_encrypted=name_enc,
@@ -222,14 +263,15 @@ class InvoiceService:
             vehicle_model_snapshot=vehicle_model_name,
             vehicle_engine_no_snapshot=vehicle_engine_no,
             vehicle_year_snapshot=vehicle_year,
-            # Financial totals (copied verbatim — immutable after this point)
+            # Financial totals — immutable after this point
             subtotal=job_card.subtotal,
             discount_amount=job_card.discount_amount,
             shop_fees=job_card.shop_fees,
-            cgst_amount=job_card.cgst_amount,
-            sgst_amount=job_card.sgst_amount,
-            igst_amount=job_card.igst_amount,
-            total_amount=job_card.total_amount,
+            cgst_amount=cgst_amount,
+            sgst_amount=sgst_amount,
+            igst_amount=igst_amount,
+            round_off_amount=round_off_amount,
+            total_amount=total_amount,
             # Carry over next service recommendation from job card
             next_service_recommendation=getattr(job_card, "next_service_recommendation", "") or "",
             # Payment — starts unpaid
@@ -258,9 +300,9 @@ class InvoiceService:
                     quantity=line.quantity,
                     unit_price=line.unit_price,
                     discount_amount=line.discount_amount,
-                    gst_percentage=line.gst_percentage,
-                    cgst_amount=line.cgst_amount,
-                    sgst_amount=line.sgst_amount,
+                    gst_percentage=line.gst_percentage if is_gst else Decimal("0.00"),
+                    cgst_amount=line.cgst_amount if is_gst else Decimal("0.00"),
+                    sgst_amount=line.sgst_amount if is_gst else Decimal("0.00"),
                     line_total=line.line_total,
                 )
             )

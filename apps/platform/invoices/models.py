@@ -33,9 +33,24 @@ from django.db import models
 from apps.common.utils.models import BaseModel
 from apps.platform.jobcards.models import indian_fy_code
 
+# Shared by Invoice and InvoiceFySequence — GST and Non-GST invoices are
+# numbered and taxed independently (see InvoiceService.generate).
+INVOICE_TYPE_GST = "gst"
+INVOICE_TYPE_NON_GST = "non_gst"
+INVOICE_TYPE_CHOICES = [
+    (INVOICE_TYPE_GST, "GST"),
+    (INVOICE_TYPE_NON_GST, "Non-GST"),
+]
+
 
 class InvoiceFySequence(BaseModel):
-    """Per-tenant per–financial-year counter for invoice numbers."""
+    """
+    Per-tenant, per–financial-year, per–invoice-type counter for invoice numbers.
+
+    GST and Non-GST invoices are numbered independently (each gets its own
+    counter per tenant per FY), so generating one never advances the other's
+    sequence.
+    """
 
     tenant = models.ForeignKey(
         "tenants.Tenant",
@@ -43,19 +58,20 @@ class InvoiceFySequence(BaseModel):
         related_name="invoice_fy_sequences",
     )
     fy_code = models.CharField(max_length=5, db_index=True)
+    invoice_type = models.CharField(max_length=10, choices=INVOICE_TYPE_CHOICES, default=INVOICE_TYPE_GST)
     last_seq = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = "invoice_fy_sequences"
         constraints = [
             models.UniqueConstraint(
-                fields=["tenant", "fy_code"],
-                name="uniq_invoice_fy_seq_per_tenant",
+                fields=["tenant", "fy_code", "invoice_type"],
+                name="uniq_invoice_fy_seq_per_tenant_type",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.tenant_id} {self.fy_code} → {self.last_seq}"
+        return f"{self.tenant_id} {self.fy_code} ({self.invoice_type}) → {self.last_seq}"
 
 
 class Invoice(BaseModel):
@@ -65,6 +81,19 @@ class Invoice(BaseModel):
     Financial columns (subtotal … total_amount) are immutable post-issuance.
     PII snapshot columns (*_encrypted, *_key_version) may be nulled on erasure requests.
     """
+
+    # Decided once at generation time (see InvoiceService.generate) and immutable
+    # afterward. GST invoices carry the job card's tax amounts verbatim; Non-GST
+    # invoices zero out CGST/SGST/IGST and recompute total_amount without tax.
+    # (Mirrors the module-level INVOICE_TYPE_* constants above, shared with
+    # InvoiceFySequence, so both can be reached as either Invoice.INVOICE_TYPE_GST
+    # or the bare module constant.)
+    INVOICE_TYPE_GST = "gst"
+    INVOICE_TYPE_NON_GST = "non_gst"
+    INVOICE_TYPE_CHOICES = [
+        (INVOICE_TYPE_GST, "GST"),
+        (INVOICE_TYPE_NON_GST, "Non-GST"),
+    ]
 
     PAYMENT_STATUS_UNPAID = "unpaid"
     PAYMENT_STATUS_PARTIAL = "partial"
@@ -106,6 +135,13 @@ class Invoice(BaseModel):
     invoice_number = models.CharField(max_length=32, db_index=True)
     fy_code = models.CharField(max_length=5)
     sequence_no = models.PositiveIntegerField()
+    invoice_type = models.CharField(
+        max_length=10,
+        choices=INVOICE_TYPE_CHOICES,
+        default=INVOICE_TYPE_GST,
+        db_index=True,
+        help_text="Decided once at generation time; immutable afterward.",
+    )
     issued_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -156,6 +192,12 @@ class Invoice(BaseModel):
     cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     igst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    round_off_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Adjustment applied to round total_amount to the nearest whole rupee (can be negative).",
+    )
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     # ── Payment (mutable, access-controlled) ──────────────────────────────────

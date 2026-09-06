@@ -6,7 +6,7 @@ context keys so the two document types stay pixel-identical by construction.
 """
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 def fmt_money(value) -> str:
@@ -20,6 +20,87 @@ def fmt_pct(value: Decimal) -> str:
     """Format a percentage without a misleading scientific-notation or trailing-zero tail."""
     text = f"{value:.2f}".rstrip("0").rstrip(".")
     return text or "0"
+
+
+_ONES = [
+    "", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+    "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
+    "SEVENTEEN", "EIGHTEEN", "NINETEEN",
+]
+_TENS = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
+
+
+def _two_digit_words(n: int) -> str:
+    if n < 20:
+        return _ONES[n]
+    tens, ones = divmod(n, 10)
+    return _TENS[tens] + (" " + _ONES[ones] if ones else "")
+
+
+def _three_digit_words(n: int) -> str:
+    hundred, rest = divmod(n, 100)
+    if hundred:
+        return _ONES[hundred] + " HUNDRED" + (" AND " + _two_digit_words(rest) if rest else "")
+    return _two_digit_words(rest)
+
+
+def _integer_to_words(n: int) -> str:
+    """Indian numbering system (crore / lakh / thousand), used for GST invoice amounts."""
+    if n == 0:
+        return "ZERO"
+    crore, n = divmod(n, 1_00_00_000)
+    lakh, n = divmod(n, 1_00_000)
+    thousand, hundred = divmod(n, 1000)
+    parts = []
+    if crore:
+        parts.append(_three_digit_words(crore) + " CRORE")
+    if lakh:
+        parts.append(_two_digit_words(lakh) + " LAKH")
+    if thousand:
+        parts.append(_two_digit_words(thousand) + " THOUSAND")
+    if hundred:
+        parts.append(_three_digit_words(hundred))
+    return " ".join(parts)
+
+
+def amount_in_words(value) -> str:
+    """e.g. Decimal('4490.00') -> 'FOUR THOUSAND FOUR HUNDRED AND NINETY RUPEES ONLY'."""
+    value = Decimal(str(value or 0)).quantize(Decimal("0.01"))
+    rupees, paise = divmod(int(value * 100), 100)
+    words = _integer_to_words(rupees) + " RUPEES"
+    if paise:
+        words += " AND " + _integer_to_words(paise) + " PAISE"
+    return words + " ONLY"
+
+
+def compute_round_off(exact_amount) -> tuple[Decimal, Decimal]:
+    """
+    Round `exact_amount` to the nearest whole rupee (standard Indian invoice
+    practice). Returns (rounded_total, round_off_amount) where round_off_amount
+    is the adjustment applied to get there (rounded - exact; can be negative).
+
+    Called at save time (JobCard.refresh_job_card_totals / InvoiceService.generate)
+    so the rounded figure is the actual stored total_amount used for payment
+    tracking / balance due, not just a PDF-display artifact.
+    """
+    exact = Decimal(str(exact_amount or 0))
+    rounded = exact.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return rounded, rounded - exact
+
+
+def round_off_display_ctx(total_amount, round_off_amount) -> dict:
+    """
+    Format an already-stored, already-rounded total_amount + round_off_amount
+    (see compute_round_off) for the PDF's "Round Off" line. No rounding math
+    happens here — the values are read straight from the DB.
+    """
+    round_off = Decimal(str(round_off_amount or 0))
+    return {
+        "rounded_total_display": fmt_money(total_amount),
+        "round_off_display": fmt_money(abs(round_off)),
+        "round_off_sign": "+" if round_off >= 0 else "-",
+        "round_off_is_zero": round_off == 0,
+    }
 
 
 def derive_pan_and_state_code(gstin: str | None) -> tuple[str, str]:
@@ -119,13 +200,17 @@ def split_lines_into_sections(lines, *, cgst_sgst_fn) -> dict:
         amount = Decimal(str(line.line_total or 0))
         rate = Decimal(str(line.gst_percentage or 0))
         cgst, sgst = cgst_sgst_fn(line)
+        gst_amount = cgst + sgst
         if line.service_type == "part":
             part_lines_ctx.append({
                 "s_no": len(part_lines_ctx) + 1,
                 "description": line.description,
                 "quantity": Decimal(str(line.quantity)).normalize(),
                 "unit_price": line.unit_price,
+                "gst_rate": fmt_pct(rate),
+                "gst_amount": gst_amount,
                 "amount": amount,
+                "total_with_gst": amount + gst_amount,
             })
             parts_total += amount
             parts_cgst += cgst
@@ -135,7 +220,12 @@ def split_lines_into_sections(lines, *, cgst_sgst_fn) -> dict:
             labour_lines_ctx.append({
                 "s_no": len(labour_lines_ctx) + 1,
                 "description": line.description,
+                "quantity": Decimal(str(line.quantity)).normalize(),
+                "unit_price": line.unit_price,
+                "gst_rate": fmt_pct(rate),
+                "gst_amount": gst_amount,
                 "amount": amount,
+                "total_with_gst": amount + gst_amount,
             })
             labour_total += amount
             labour_cgst += cgst
@@ -163,6 +253,12 @@ def split_lines_into_sections(lines, *, cgst_sgst_fn) -> dict:
         "labour_total_with_gst": fmt_money(labour_total + labour_gst),
         "parts_gst_rate_pct": _rate_label(part_rates),
         "labour_gst_rate_pct": _rate_label(labour_rates),
+        # Document-wide tax summary (parts + labour combined) for the closing
+        # Base Amount / CGST / SGST / Total Tax box.
+        "base_amount": fmt_money(parts_total + labour_total),
+        "total_cgst": fmt_money(parts_cgst + labour_cgst),
+        "total_sgst": fmt_money(parts_sgst + labour_sgst),
+        "total_tax": fmt_money(parts_gst + labour_gst),
     }
 
 

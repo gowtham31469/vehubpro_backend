@@ -18,10 +18,12 @@ from decimal import Decimal
 from django.template.loader import render_to_string
 
 from apps.common.utils.pdf_documents import (
+    amount_in_words,
     build_invoice_settings_pdf_context,
     derive_pan_and_state_code,
     fmt_date,
     fmt_money,
+    round_off_display_ctx,
     split_lines_into_sections,
     state_name_from_code,
 )
@@ -131,6 +133,7 @@ def render_jobcard_preview_html(job_card) -> str:
     customer_name = customer.full_name if customer else "—"
     customer_address = _build_customer_address(customer)
     customer_gstin = (getattr(customer, "gstin", "") or "").strip() if customer else ""
+    customer_phone = (getattr(customer, "phone", "") or "").strip() if customer else ""
 
     # ── Vehicle ──────────────────────────────────────────────────────────────
     vehicle = job_card.vehicle
@@ -153,6 +156,8 @@ def render_jobcard_preview_html(job_card) -> str:
     settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
     settings_ctx["terms_paragraphs"] = []
 
+    rounding_ctx = round_off_display_ctx(job_card.total_amount, job_card.round_off_amount)
+
     context = {
         "tenant_name": tenant_name,
         "tenant_address": tenant_address,
@@ -171,6 +176,7 @@ def render_jobcard_preview_html(job_card) -> str:
         "customer_name": customer_name,
         "customer_address": customer_address,
         "customer_gstin": customer_gstin,
+        "customer_phone": customer_phone,
         "vehicle_reg": vehicle.registration_no if vehicle else "—",
         "vehicle_brand": vehicle_brand,
         "vehicle_model_name": vehicle_model_name,
@@ -180,6 +186,12 @@ def render_jobcard_preview_html(job_card) -> str:
         "vehicle_odo": f"{job_card.km_reading:,} km" if job_card.km_reading else "",
         **lines_ctx,
         "grand_total": fmt_money(job_card.total_amount),
+        "discount_amount_display": fmt_money(job_card.discount_amount) if job_card.discount_amount else None,
+        "shop_fees_display": fmt_money(job_card.shop_fees) if job_card.shop_fees else None,
+        **rounding_ctx,
+        "total_in_words": amount_in_words(job_card.total_amount),
+        # Job cards always show GST — the show/hide toggle only applies to invoices.
+        "show_gst": True,
         "notes_label": "Notes:-",
         "notes": job_card.notes or "",
         **settings_ctx,

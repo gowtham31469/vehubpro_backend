@@ -131,6 +131,12 @@ class JobCard(BaseModel):
     cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     igst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    round_off_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Adjustment applied to round total_amount to the nearest whole rupee (can be negative).",
+    )
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_JOB_CONTROL, db_index=True)
     assigned_technician = models.ForeignKey(

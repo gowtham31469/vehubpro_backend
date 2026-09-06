@@ -69,6 +69,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "id",
             "invoice_number",
             "fy_code",
+            "invoice_type",
             "job_card",
             "tenant_name_snapshot",
             "vehicle_registration_no_snapshot",
@@ -79,6 +80,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "cgst_amount",
             "sgst_amount",
             "igst_amount",
+            "round_off_amount",
             "total_amount",
             "payment_status",
             "amount_paid",
@@ -161,6 +163,7 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
             "jobcard_number",
             "invoice_number",
             "fy_code",
+            "invoice_type",
             "job_card",
             "tenant_name_snapshot",
             "vehicle_registration_no_snapshot",
@@ -171,6 +174,7 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
             "cgst_amount",
             "sgst_amount",
             "igst_amount",
+            "round_off_amount",
             "total_amount",
             "payment_status",
             "amount_paid",
@@ -231,8 +235,9 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
 
 
 class GenerateInvoiceSerializer(serializers.Serializer):
-    """Input for POST /job-cards/{id}/generate-invoice/ — no body required, but accepts optional notes."""
+    """Input for POST /job-cards/{id}/generate-invoice/."""
 
+    invoice_type = serializers.ChoiceField(choices=Invoice.INVOICE_TYPE_CHOICES, default=Invoice.INVOICE_TYPE_GST)
     notes = serializers.CharField(required=False, allow_blank=True, max_length=1000)
 
 

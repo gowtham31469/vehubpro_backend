@@ -72,11 +72,13 @@ class GenerateInvoiceAPIView(APIView):
     """
     POST /api/v1/job-cards/{job_card_id}/generate-invoice/
 
-    Converts a completed job card into an immutable GST invoice.
-    The job card's status changes from 'completed' → 'invoiced' atomically.
+    Converts a completed job card into an immutable invoice — GST or Non-GST,
+    per the request body. The job card's status changes from 'completed' →
+    'invoiced' atomically.
 
-    Request body (optional JSON):
-        { "notes": "..." }
+    Request body (JSON):
+        { "invoice_type": "gst" | "non_gst", "notes": "..." }
+        invoice_type defaults to "gst" if omitted.
 
     Responses:
         201  Invoice created — returns full invoice detail.
@@ -107,9 +109,10 @@ class GenerateInvoiceAPIView(APIView):
         serializer = GenerateInvoiceSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         notes = serializer.validated_data.get("notes", "")
+        invoice_type = serializer.validated_data["invoice_type"]
 
         try:
-            invoice = InvoiceService.generate(job_card, issued_by=request.user)
+            invoice = InvoiceService.generate(job_card, issued_by=request.user, invoice_type=invoice_type)
         except InvalidJobCardStatus as exc:
             return error_response(
                 request,
@@ -157,6 +160,9 @@ class InvoiceListAPIView(APIView):
 
     Query parameters:
         payment_status  Filter by payment_status (unpaid | partial | paid).
+        invoice_type    Filter by invoice_type (gst | non_gst).
+        is_cancelled    "true" to show only cancelled invoices, "false" to exclude
+                         them. Omit to include both (no filtering by this field).
         fy_code         Filter by financial year code (e.g. "25-26").
         search          Prefix search on invoice_number or vehicle registration snapshot.
         page            Page number (default 1).
@@ -179,6 +185,16 @@ class InvoiceListAPIView(APIView):
         payment_status = request.query_params.get("payment_status", "").strip()
         if payment_status in {Invoice.PAYMENT_STATUS_UNPAID, Invoice.PAYMENT_STATUS_PARTIAL, Invoice.PAYMENT_STATUS_PAID}:
             queryset = queryset.filter(payment_status=payment_status)
+
+        invoice_type = request.query_params.get("invoice_type", "").strip()
+        if invoice_type in {Invoice.INVOICE_TYPE_GST, Invoice.INVOICE_TYPE_NON_GST}:
+            queryset = queryset.filter(invoice_type=invoice_type)
+
+        is_cancelled_param = request.query_params.get("is_cancelled", "").strip().lower()
+        if is_cancelled_param in {"true", "1", "yes"}:
+            queryset = queryset.filter(is_cancelled=True)
+        elif is_cancelled_param in {"false", "0", "no"}:
+            queryset = queryset.filter(is_cancelled=False)
 
         fy_code = request.query_params.get("fy_code", "").strip()
         if fy_code:

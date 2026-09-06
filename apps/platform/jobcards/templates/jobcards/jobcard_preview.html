@@ -119,137 +119,235 @@
     </header>
 
     <!-- Document type bar -->
-    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mb-3">{{ doc_type_label }}</div>
-    <div class="flex items-center justify-between gap-4 mb-3 text-sm font-bold">
+    <div class="bg-slate-900 text-white text-center py-1 font-bold tracking-widest text-xs mb-2">{{ doc_type_label }}
+    </div>
+    <div class="flex items-center justify-between gap-4 mb-2 text-xs font-bold">
       <span>{{ doc_number_label }} : {{ doc_number }}</span>
       <span>DATE : {{ date_created }}</span>
     </div>
 
     {% if is_cancelled %}
     <div class="avoid-break mb-4 border-2 border-rose-600 bg-rose-50 px-3 py-2 text-rose-700">
-      <p class="text-sm font-bold tracking-widest">CANCELLED{% if cancelled_at %} &middot; {{ cancelled_at }}{% endif %}</p>
+      <p class="text-sm font-bold tracking-widest">CANCELLED{% if cancelled_at %} &middot; {{ cancelled_at }}{% endif %}
+      </p>
       {% if cancellation_reason %}<p class="mt-0.5 text-xs">Reason: {{ cancellation_reason }}</p>{% endif %}
     </div>
     {% endif %}
 
     <!-- CUSTOMER / VEHICLE DETAILS split bar -->
     <div class="avoid-break grid grid-cols-2 mb-2">
-      <div class="bg-slate-900 text-white text-xs font-bold uppercase tracking-wide px-2 py-1.5">Customer Details</div>
-      <div class="bg-slate-900 text-white text-xs font-bold uppercase tracking-wide px-2 py-1.5">Vehicle Details</div>
+      <div class="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-1">Customer Details</div>
+      <div class="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-1">Vehicle Details</div>
     </div>
-    <div class="avoid-break grid grid-cols-2 gap-4 mb-6 text-xs">
+    <div class="avoid-break grid grid-cols-2 gap-4 mb-3 text-xs">
       <table class="bordered">
         <tbody>
-          <tr><td class="w-[90px] py-1 px-2 font-bold uppercase bg-slate-50">Name</td><td class="py-1 px-2">{{ customer_name }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Address</td><td class="py-1 px-2">{{ customer_address|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Gst Number</td><td class="py-1 px-2">{{ customer_gstin|default:"NILL" }}</td></tr>
+          <tr>
+            <td class="w-[90px] py-0.5 px-2 font-bold uppercase bg-slate-50">Name</td>
+            <td class="py-0.5 px-2">{{ customer_name }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Phone</td>
+            <td class="py-0.5 px-2">{{ customer_phone|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Address</td>
+            <td class="py-0.5 px-2">{{ customer_address|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Gst Number</td>
+            <td class="py-0.5 px-2">{{ customer_gstin|default:"NILL" }}</td>
+          </tr>
         </tbody>
       </table>
       <table class="bordered">
         <tbody>
-          <tr><td class="w-[100px] py-1 px-2 font-bold uppercase bg-slate-50">Reg Number</td><td class="py-1 px-2">{{ vehicle_reg }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Make</td><td class="py-1 px-2">{{ vehicle_brand|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Model</td><td class="py-1 px-2">{{ vehicle_model_name|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Vin Number</td><td class="py-1 px-2">{{ vehicle_vin|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Eng Number</td><td class="py-1 px-2">{{ vehicle_engine_no|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Model Year</td><td class="py-1 px-2">{{ vehicle_year|default:"—" }}</td></tr>
-          <tr><td class="py-1 px-2 font-bold uppercase bg-slate-50">Odometer</td><td class="py-1 px-2">{{ vehicle_odo|default:"—" }}</td></tr>
+          <tr>
+            <td class="w-[100px] py-0.5 px-2 font-bold uppercase bg-slate-50">Reg Number</td>
+            <td class="py-0.5 px-2">{{ vehicle_reg }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Make</td>
+            <td class="py-0.5 px-2">{{ vehicle_brand|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Model</td>
+            <td class="py-0.5 px-2">{{ vehicle_model_name|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Vin Number</td>
+            <td class="py-0.5 px-2">{{ vehicle_vin|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Eng Number</td>
+            <td class="py-0.5 px-2">{{ vehicle_engine_no|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Model Year</td>
+            <td class="py-0.5 px-2">{{ vehicle_year|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="py-0.5 px-2 font-bold uppercase bg-slate-50">Odometer</td>
+            <td class="py-0.5 px-2">{{ vehicle_odo|default:"—" }}</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
     {% if part_lines %}
     <!-- PARTS DETAILS -->
-    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-xs mb-0">PARTS DETAILS</div>
-    <table class="bordered text-xs mb-6">
+    <div class="bg-slate-900 text-white text-center py-1 font-bold tracking-widest text-[10px] mb-0">PARTS DETAILS</div>
+    <table class="bordered text-[11px] mb-3">
       <thead>
         <tr class="bg-slate-100">
-          <th class="py-1.5 px-2 w-16">Type</th>
-          <th class="py-1.5 px-2 w-12">S No</th>
-          <th class="py-1.5 px-2 text-left">Description</th>
-          <th class="py-1.5 px-2 w-20">Quantity</th>
-          <th class="py-1.5 px-2 w-24">Unit Price</th>
-          <th class="py-1.5 px-2 w-24">Amount</th>
+          <th class="py-1 px-2 w-16">Type</th>
+          <th class="py-1 px-2 w-12">S No</th>
+          <th class="py-1 px-2 text-left">Description</th>
+          <th class="py-1 px-2 w-20">Quantity</th>
+          <th class="py-1 px-2 w-24">Taxable Value</th>
+          {% if show_gst %}
+          <th class="py-1 px-2 w-16">GST %</th>
+          <th class="py-1 px-2 w-20">GST Amt</th>
+          {% endif %}
+          <th class="py-1 px-2 w-24">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for line in part_lines %}
         <tr>
-          <td class="py-1 px-2 text-center">Part</td>
-          <td class="py-1 px-2 text-center">{{ line.s_no }}</td>
-          <td class="py-1 px-2">{{ line.description }}</td>
-          <td class="py-1 px-2 text-center">{{ line.quantity }}</td>
-          <td class="py-1 px-2 text-right">{{ line.unit_price|floatformat:2 }}</td>
-          <td class="py-1 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+          <td class="py-0.5 px-2 text-center">Part</td>
+          <td class="py-0.5 px-2 text-center">{{ line.s_no }}</td>
+          <td class="py-0.5 px-2">{{ line.description }}</td>
+          <td class="py-0.5 px-2 text-center">{{ line.quantity }}</td>
+          <td class="py-0.5 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+          {% if show_gst %}
+          <td class="py-0.5 px-2 text-center">{{ line.gst_rate }}%</td>
+          <td class="py-0.5 px-2 text-right">{{ line.gst_amount|floatformat:2 }}</td>
+          {% endif %}
+          <td class="py-0.5 px-2 text-right">{{ line.total_with_gst|floatformat:2 }}</td>
         </tr>
         {% endfor %}
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">Total Parts (Without GST)</td>
-          <td class="py-1 px-2 text-right">{{ parts_total }}</td>
-        </tr>
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">CGST{% if parts_gst_rate_pct %} ({{ parts_gst_rate_pct }}%){% endif %}</td>
-          <td class="py-1 px-2 text-right">{{ parts_cgst }}</td>
-        </tr>
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">SGST{% if parts_gst_rate_pct %} ({{ parts_gst_rate_pct }}%){% endif %}</td>
-          <td class="py-1 px-2 text-right">{{ parts_sgst }}</td>
-        </tr>
-        <tr class="bg-slate-200 font-bold">
-          <td colspan="5" class="py-1.5 px-2 text-right">TOTAL PARTS (WITH GST)</td>
-          <td class="py-1.5 px-2 text-right">{{ parts_total_with_gst }}</td>
-        </tr>
       </tbody>
     </table>
     {% endif %}
 
     {% if labour_lines %}
     <!-- LABOUR DETAILS -->
-    <div class="bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-xs mb-0">LABOUR DETAILS</div>
-    <table class="bordered text-xs mb-6">
+    <div class="bg-slate-900 text-white text-center py-1 font-bold tracking-widest text-[10px] mb-0">LABOUR DETAILS
+    </div>
+    <table class="bordered text-[11px] mb-3">
       <thead>
         <tr class="bg-slate-100">
-          <th class="py-1.5 px-2 w-16">Type</th>
-          <th class="py-1.5 px-2 w-12">S No</th>
-          <th class="py-1.5 px-2 text-left">Description</th>
-          <th class="py-1.5 px-2 w-20">Quantity</th>
-          <th class="py-1.5 px-2 w-24">Unit Price</th>
-          <th class="py-1.5 px-2 w-24">Amount</th>
+          <th class="py-1 px-2 w-16">Type</th>
+          <th class="py-1 px-2 w-12">S No</th>
+          <th class="py-1 px-2 text-left">Description</th>
+          <th class="py-1 px-2 w-20">Quantity</th>
+          <th class="py-1 px-2 w-24">Taxable Value</th>
+          {% if show_gst %}
+          <th class="py-1 px-2 w-16">GST %</th>
+          <th class="py-1 px-2 w-20">GST Amt</th>
+          {% endif %}
+          <th class="py-1 px-2 w-24">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for line in labour_lines %}
         <tr>
-          <td class="py-1 px-2 text-center">Labour</td>
-          <td class="py-1 px-2 text-center">{{ line.s_no }}</td>
-          <td class="py-1 px-2" colspan="3">{{ line.description }}</td>
-          <td class="py-1 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+          <td class="py-0.5 px-2 text-center">Labour</td>
+          <td class="py-0.5 px-2 text-center">{{ line.s_no }}</td>
+          <td class="py-0.5 px-2">{{ line.description }}</td>
+          <td class="py-0.5 px-2 text-center">{{ line.quantity }}</td>
+          <td class="py-0.5 px-2 text-right">{{ line.amount|floatformat:2 }}</td>
+          {% if show_gst %}
+          <td class="py-0.5 px-2 text-center">{{ line.gst_rate }}%</td>
+          <td class="py-0.5 px-2 text-right">{{ line.gst_amount|floatformat:2 }}</td>
+          {% endif %}
+          <td class="py-0.5 px-2 text-right">{{ line.total_with_gst|floatformat:2 }}</td>
         </tr>
         {% endfor %}
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">Total Labour (Without GST)</td>
-          <td class="py-1 px-2 text-right">{{ labour_total }}</td>
-        </tr>
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">CGST{% if labour_gst_rate_pct %} ({{ labour_gst_rate_pct }}%){% endif %}</td>
-          <td class="py-1 px-2 text-right">{{ labour_cgst }}</td>
-        </tr>
-        <tr>
-          <td colspan="5" class="py-1 px-2 text-right">SGST{% if labour_gst_rate_pct %} ({{ labour_gst_rate_pct }}%){% endif %}</td>
-          <td class="py-1 px-2 text-right">{{ labour_sgst }}</td>
-        </tr>
-        <tr class="bg-slate-200 font-bold">
-          <td colspan="5" class="py-1.5 px-2 text-right">TOTAL LABOUR (WITH GST)</td>
-          <td class="py-1.5 px-2 text-right">{{ labour_total_with_gst }}</td>
-        </tr>
       </tbody>
     </table>
     {% endif %}
 
-    <!-- GRAND TOTAL -->
-    <div class="bg-slate-900 text-white flex justify-between items-center px-3 py-2 font-bold text-sm mb-6">
-      <span class="tracking-widest">GRAND TOTAL</span>
-      <span>₹{{ grand_total }}</span>
+    <!-- Tax summary — total in words + Base Amount / CGST / SGST / Total Tax breakdown.
+         Built with flexbox rather than a <table>: a nested table's rows can't be
+         made to stretch and fill an auto-height ancestor cell (the Non-GST case
+         has only one row, and it must fill the whole box, not just its own
+         content height) — flex's default align-items:stretch handles that for free. -->
+    <div class="avoid-break mb-4 flex text-[11px]" style="border: 1px solid #1e293b;">
+      <div class="py-1.5 px-3" style="width: 55%; border-right: 1px solid #1e293b;">
+        <p class="mb-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">Total in words</p>
+        <p class="font-semibold uppercase leading-tight">{{ total_in_words }}</p>
+      </div>
+      <div class="flex flex-1 flex-col">
+        {% if show_gst %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Base Amount</span><span>₹{{ base_amount }}</span>
+        </div>
+        {% if discount_amount_display %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Discount</span><span>-₹{{ discount_amount_display }}</span>
+        </div>
+        {% endif %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>CGST</span><span>₹{{ total_cgst }}</span>
+        </div>
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>SGST</span><span>₹{{ total_sgst }}</span>
+        </div>
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Total Tax</span><span>₹{{ total_tax }}</span>
+        </div>
+        {% if shop_fees_display %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Shop Fees</span><span>₹{{ shop_fees_display }}</span>
+        </div>
+        {% endif %}
+        {% if not round_off_is_zero %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Round Off</span><span>{{ round_off_sign }}₹{{ round_off_display }}</span>
+        </div>
+        {% endif %}
+        <div
+          class="flex flex-1 items-center justify-between bg-slate-900 py-1.5 px-3 font-bold tracking-wide text-white">
+          <span>Total Amount After Tax</span><span>₹{{ rounded_total_display }}</span>
+        </div>
+        {% else %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Base Amount</span><span>₹{{ base_amount }}</span>
+        </div>
+        {% if discount_amount_display %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Discount</span><span>-₹{{ discount_amount_display }}</span>
+        </div>
+        {% endif %}
+        {% if shop_fees_display %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Shop Fees</span><span>₹{{ shop_fees_display }}</span>
+        </div>
+        {% endif %}
+        {% if not round_off_is_zero %}
+        <div class="flex items-center justify-between py-1 px-3 font-semibold"
+          style="border-bottom: 1px solid #1e293b;">
+          <span>Round Off</span><span>{{ round_off_sign }}₹{{ round_off_display }}</span>
+        </div>
+        {% endif %}
+        <div
+          class="flex flex-1 items-center justify-between bg-slate-900 py-1.5 px-3 font-bold tracking-wide text-white">
+          <span>Total Amount</span><span>₹{{ rounded_total_display }}</span>
+        </div>
+        {% endif %}
+      </div>
     </div>
 
     <!-- Notes -->
@@ -261,7 +359,8 @@
     {% endif %}
 
     {% if terms_paragraphs %}
-    <div class="avoid-break bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mt-10 mb-4">TERMS &amp; CONDITIONS</div>
+    <div class="avoid-break bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mt-10 mb-4">
+      TERMS &amp; CONDITIONS</div>
     <div class="space-y-3 text-xs leading-relaxed text-slate-800 mb-8">
       {% for para in terms_paragraphs %}
       <p class="avoid-break">{{ forloop.counter }}. {{ para|linebreaksbr }}</p>
@@ -281,7 +380,8 @@
           {% if bank_details.account_holder_name %}<p>Account Name: <span class="font-bold">{{ bank_details.account_holder_name }}</span></p>{% endif %}
           {% if bank_details.account_type %}<p>Account Type: <span class="font-bold">{{ bank_details.account_type }}</span></p>{% endif %}
           {% if bank_details.bank_name %}<p>Bank Name: <span class="font-bold">{{ bank_details.bank_name }}</span></p>{% endif %}
-          {% if bank_details.branch_name %}<p>Branch: <span class="font-bold">{{ bank_details.branch_name }}</span></p>{% endif %}
+          {% if bank_details.branch_name %}<p>Branch: <span class="font-bold">{{ bank_details.branch_name }}</span></p>
+          {% endif %}
           {% if bank_details.upi_id %}<p>UPI ID: <span class="font-bold">{{ bank_details.upi_id }}</span></p>{% endif %}
         </div>
         {% if qr_data_url %}

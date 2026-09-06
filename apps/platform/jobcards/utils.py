@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from apps.common.utils.pdf_documents import compute_round_off
 from apps.platform.jobcards.models import JobCard, JobCardFySequence, JobCardLineItem, indian_fy_code
 from apps.platform.services.models import ServiceItem
 
@@ -197,7 +198,8 @@ def refresh_job_card_totals(job_card: JobCard) -> None:
     shop = Decimal(str(job_card.shop_fees or 0))
     if shop < 0:
         shop = Decimal("0")
-    total = (taxable + cgst + sgst + igst + shop).quantize(Decimal("0.01"))
+    exact_total = (taxable + cgst + sgst + igst + shop).quantize(Decimal("0.01"))
+    rounded_total, round_off = compute_round_off(exact_total)
 
     JobCard.objects.filter(pk=job_card.pk).update(
         subtotal=subtotal.quantize(Decimal("0.01")),
@@ -205,5 +207,6 @@ def refresh_job_card_totals(job_card: JobCard) -> None:
         cgst_amount=cgst.quantize(Decimal("0.01")),
         sgst_amount=sgst.quantize(Decimal("0.01")),
         igst_amount=igst,
-        total_amount=total,
+        round_off_amount=round_off,
+        total_amount=rounded_total,
     )

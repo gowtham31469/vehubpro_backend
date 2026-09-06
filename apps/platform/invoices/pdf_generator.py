@@ -13,11 +13,14 @@ from decimal import Decimal
 
 from django.template.loader import render_to_string
 
+from apps.platform.invoices.models import Invoice
 from apps.common.utils.pdf_documents import (
+    amount_in_words,
     build_invoice_settings_pdf_context,
     derive_pan_and_state_code,
     fmt_date,
     fmt_money,
+    round_off_display_ctx,
     split_lines_into_sections,
     state_name_from_code,
 )
@@ -115,6 +118,7 @@ def render_invoice_preview_html(invoice) -> str:
     if invoice.is_pii_erased:
         customer_name = "[ERASED]"
         customer_address = "[ERASED]"
+        customer_phone = "[ERASED]"
     else:
         try:
             customer_name = invoice.get_customer_name() or "—"
@@ -124,6 +128,10 @@ def render_invoice_preview_html(invoice) -> str:
             customer_address = invoice.get_customer_address() or ""
         except Exception:
             customer_address = ""
+        try:
+            customer_phone = invoice.get_customer_phone() or ""
+        except Exception:
+            customer_phone = ""
     customer_gstin = invoice.customer_gstin or ""
 
     # ── Line items — split into Parts / Labour using each line's own stored
@@ -139,6 +147,8 @@ def render_invoice_preview_html(invoice) -> str:
 
     # ── Terms & conditions / bank details / QR ────────────────────────────────
     settings_ctx = build_invoice_settings_pdf_context(invoice_settings, _media_data_url)
+
+    rounding_ctx = round_off_display_ctx(invoice.total_amount, invoice.round_off_amount)
 
     context = {
         "tenant_name": tenant_name,
@@ -158,6 +168,7 @@ def render_invoice_preview_html(invoice) -> str:
         "customer_name": customer_name,
         "customer_address": customer_address,
         "customer_gstin": customer_gstin,
+        "customer_phone": customer_phone,
         "vehicle_reg": invoice.vehicle_registration_no_snapshot or "—",
         "vehicle_brand": invoice.vehicle_brand_snapshot,
         "vehicle_model_name": invoice.vehicle_model_snapshot,
@@ -167,6 +178,11 @@ def render_invoice_preview_html(invoice) -> str:
         "vehicle_odo": f"{invoice.vehicle_odometer_snapshot:,} km" if invoice.vehicle_odometer_snapshot else "",
         **lines_ctx,
         "grand_total": fmt_money(invoice.total_amount),
+        "discount_amount_display": fmt_money(invoice.discount_amount) if invoice.discount_amount else None,
+        "shop_fees_display": fmt_money(invoice.shop_fees) if invoice.shop_fees else None,
+        **rounding_ctx,
+        "total_in_words": amount_in_words(invoice.total_amount),
+        "show_gst": invoice.invoice_type == Invoice.INVOICE_TYPE_GST,
         "notes_label": "Next Service Recommendation:-",
         "notes": invoice.next_service_recommendation or "",
         "is_cancelled": invoice.is_cancelled,
