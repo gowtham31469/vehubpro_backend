@@ -38,6 +38,7 @@ urlpatterns += [
     path("api/v1/services/", include("apps.platform.services.urls")),
     path("api/v1/job-cards/", include("apps.platform.jobcards.urls")),
     path("api/v1/invoices/", include("apps.platform.invoices.urls")),
+    path("api/v1/quotations/", include("apps.platform.quotations.urls")),
     path("api/v1/portfolio/", include("apps.platform.portfolio.urls")),
     path("api/v1/dashboard/", include("apps.platform.dashboard.urls")),
     path("api/v1/modules/", include("apps.platform.modules.urls")),

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.platform.services",
     "apps.platform.jobcards",
     "apps.platform.invoices",
+    "apps.platform.quotations",
     "apps.platform.portfolio",
     "apps.platform.dashboard",
     "apps.consent",

@@ -120,6 +120,14 @@ class JobCard(BaseModel):
     jobcard_number = models.CharField(max_length=32, db_index=True)
     customer = models.ForeignKey("customers.Customer", on_delete=models.PROTECT, related_name="job_cards")
     vehicle = models.ForeignKey("vehicles.ServiceVehicle", on_delete=models.PROTECT, related_name="job_cards")
+    quotation = models.ForeignKey(
+        "quotations.Quotation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="job_cards",
+        help_text="Set when this job card was created from an approved quotation. Optional — direct job card creation is unaffected.",
+    )
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     shop_fees = models.DecimalField(

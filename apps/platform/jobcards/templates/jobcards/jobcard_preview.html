@@ -125,10 +125,16 @@
       <span>{{ doc_number_label }} : {{ doc_number }}</span>
       <span>DATE : {{ date_created }}</span>
     </div>
+    {% if valid_until_display %}
+    <div class="flex items-center justify-between gap-4 mb-2 text-xs font-bold">
+      <span>VALID UNTIL : {{ valid_until_display }}</span>
+      <span></span>
+    </div>
+    {% endif %}
 
     {% if is_cancelled %}
     <div class="avoid-break mb-4 border-2 border-rose-600 bg-rose-50 px-3 py-2 text-rose-700">
-      <p class="text-sm font-bold tracking-widest">CANCELLED{% if cancelled_at %} &middot; {{ cancelled_at }}{% endif %}
+      <p class="text-sm font-bold tracking-widest">{{ status_banner_label|default:"CANCELLED" }}{% if cancelled_at %} &middot; {{ cancelled_at }}{% endif %}
       </p>
       {% if cancellation_reason %}<p class="mt-0.5 text-xs">Reason: {{ cancellation_reason }}</p>{% endif %}
     </div>
