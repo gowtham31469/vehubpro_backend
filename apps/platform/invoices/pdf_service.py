@@ -367,7 +367,10 @@ class InvoicePdfService:
     """Stateless PDF generation and storage service."""
 
     @staticmethod
-    def generate_and_store(invoice, *, force: bool = False) -> str:
+    def generate_and_store(
+        invoice, *, force: bool = False,
+        terms_new_page: bool = False, bank_new_page: bool = False,
+    ) -> str:
         """
         Generate the invoice PDF, upload to storage, persist the key to the DB.
 
@@ -382,13 +385,25 @@ class InvoicePdfService:
             Regenerate even if ``pdf_key`` is already set (e.g. after a payment
             status update). The whole PDF folder is purged before the new file
             is written, so only the latest PDF is ever retained.
+        terms_new_page, bank_new_page : bool
+            Download-time layout overrides — start "Terms & Conditions" /
+            "Our account details" on a fresh page instead of flowing naturally
+            after the preceding section. Either one being set always
+            regenerates a fresh, one-off PDF: it's never served from (or
+            written to) the cached ``pdf_key``, and the canonical PDF folder
+            is never purged — the customized file is stored under its own
+            content-hashed key and that key is returned directly. This keeps
+            the "default" (no-toggle) download — the one linked from emails,
+            the detail page, etc. — always the standard layout.
 
         Returns
         -------
         str
             The storage key (relative LOCAL path or S3 object key).
         """
-        if invoice.pdf_key and not force:
+        custom_layout = terms_new_page or bank_new_page
+
+        if invoice.pdf_key and not force and not custom_layout:
             return invoice.pdf_key
 
         try:
@@ -397,7 +412,9 @@ class InvoicePdfService:
                 generate_invoice_pdf,
             )
             # Render the invoice preview HTML
-            html_content = render_invoice_preview_html(invoice)
+            html_content = render_invoice_preview_html(
+                invoice, terms_new_page=terms_new_page, bank_new_page=bank_new_page,
+            )
             logger.info("Using Playwright for PDF generation (invoice: %s)", invoice.invoice_number)
             logger.debug("Rendered HTML length: %d chars, includes tenant_address: %s",
                         len(html_content), 'tenant_address_snapshot' in html_content)
@@ -430,6 +447,15 @@ class InvoicePdfService:
             invoice.invoice_number,
             content_hash,
         )
+
+        if custom_layout:
+            # One-off customized layout — store alongside the canonical file,
+            # but never purge the folder or touch pdf_key.
+            try:
+                return _store_pdf_bytes(pdf_bytes, relative_key)
+            except Exception as exc:
+                logger.exception("PDF storage failed for invoice %s", invoice.invoice_number)
+                raise PdfGenerationError(f"PDF storage failed: {exc}") from exc
 
         # Purge the whole folder (not just the tracked pdf_key) so any file left
         # behind from before pdf_key existed, or from a prior bug, doesn't linger.

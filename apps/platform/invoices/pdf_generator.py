@@ -67,9 +67,14 @@ def generate_invoice_pdf(html_content: str) -> bytes:
         loop.close()
 
 
-def render_invoice_preview_html(invoice) -> str:
+def render_invoice_preview_html(invoice, *, terms_new_page: bool = False, bank_new_page: bool = False) -> str:
     """
     Render the invoice as standalone HTML (matching the job card's design exactly).
+
+    terms_new_page / bank_new_page: download-time layout overrides — start
+    "Terms & Conditions" / "Our account details" on a fresh page instead of
+    flowing naturally after the preceding section. Both default to False
+    (the standard, space-efficient flowing layout).
 
     Returns the complete HTML document that can be converted to PDF.
     """
@@ -188,6 +193,8 @@ def render_invoice_preview_html(invoice) -> str:
         "is_cancelled": invoice.is_cancelled,
         "cancelled_at": fmt_date(invoice.cancelled_at) if invoice.cancelled_at else "",
         "cancellation_reason": invoice.cancellation_reason or "",
+        "terms_new_page": terms_new_page,
+        "bank_new_page": bank_new_page,
         **settings_ctx,
     }
 

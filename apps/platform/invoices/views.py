@@ -295,14 +295,22 @@ class InvoiceDetailAPIView(APIView):
         )
 
 
+def _bool_param(request, name: str) -> bool:
+    return request.query_params.get(name, "false").strip().lower() in {"true", "1", "yes"}
+
+
 class InvoicePreviewHtmlAPIView(APIView):
     """
-    GET /api/v1/invoices/{id}/preview-html/
+    GET /api/v1/invoices/{id}/preview-html/?terms_new_page=true&bank_new_page=true
 
     Returns the raw HTML used to generate the invoice PDF (same template, same
     data), for embedding in an iframe. This keeps the in-app preview guaranteed
     pixel-identical to the downloaded PDF instead of a hand-maintained,
     drift-prone React replica.
+
+    terms_new_page / bank_new_page: optional download-time layout preview —
+    reflects the same toggles accepted by the PDF generation endpoint below,
+    so a user can see the effect before committing to a download.
     """
 
     permission_classes = [IsAuthenticatedInvoiceAccess]
@@ -324,7 +332,11 @@ class InvoicePreviewHtmlAPIView(APIView):
         from django.http import HttpResponse
 
         from apps.platform.invoices.pdf_generator import render_invoice_preview_html
-        html = render_invoice_preview_html(invoice)
+        html = render_invoice_preview_html(
+            invoice,
+            terms_new_page=_bool_param(request, "terms_new_page"),
+            bank_new_page=_bool_param(request, "bank_new_page"),
+        )
         return HttpResponse(html, content_type="text/html")
 
 
@@ -455,8 +467,16 @@ class InvoicePdfAPIView(APIView):
 
     Query params
     ------------
-    force   "true" to regenerate even if a PDF already exists (e.g. after
-            payment status changes). Defaults to false.
+    force            "true" to regenerate even if a PDF already exists (e.g. after
+                     payment status changes). Defaults to false.
+    terms_new_page   "true" to start "Terms & Conditions" on a fresh page instead
+                     of flowing naturally after the preceding section.
+    bank_new_page    "true" to start "Our account details" on a fresh page instead
+                     of flowing naturally after Terms & Conditions.
+
+    Either layout toggle always generates a fresh, one-off PDF (never served
+    from — or written to — the cached/canonical pdf_key), so re-downloading
+    the default (no-toggle) PDF later still returns the standard layout.
 
     Response
     --------
@@ -485,14 +505,18 @@ class InvoicePdfAPIView(APIView):
             tenant_id=tenant_id,
         )
 
-        force = request.query_params.get("force", "false").lower() in {"true", "1", "yes"}
-        already_had_pdf = bool(invoice.pdf_key) and not force
+        force = _bool_param(request, "force")
+        terms_new_page = _bool_param(request, "terms_new_page")
+        bank_new_page = _bool_param(request, "bank_new_page")
+        already_had_pdf = bool(invoice.pdf_key) and not force and not terms_new_page and not bank_new_page
 
         # Audit — generating the PDF decrypts PII at render time
         _log_pii_access(request, invoice)
 
         try:
-            pdf_key = InvoicePdfService.generate_and_store(invoice, force=force)
+            pdf_key = InvoicePdfService.generate_and_store(
+                invoice, force=force, terms_new_page=terms_new_page, bank_new_page=bank_new_page,
+            )
         except PdfNotAvailableError as exc:
             return error_response(
                 request,

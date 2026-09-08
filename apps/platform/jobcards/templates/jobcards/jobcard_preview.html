@@ -365,7 +365,7 @@
     {% endif %}
 
     {% if terms_paragraphs %}
-    <div class="avoid-break bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mt-10 mb-4">
+    <div class="avoid-break {% if terms_new_page %}new-page{% endif %} bg-slate-900 text-white text-center py-1.5 font-bold tracking-widest text-sm mt-10 mb-4">
       TERMS &amp; CONDITIONS</div>
     <div class="space-y-3 text-xs leading-relaxed text-slate-800 mb-8">
       {% for para in terms_paragraphs %}
@@ -380,7 +380,7 @@
          terms text no longer wastes an entire blank page before this section. -->
     <div>
       {% if bank_details %}
-      <div class="avoid-break">
+      <div class="avoid-break {% if bank_new_page %}new-page{% endif %}">
         <p class="text-[10px] font-bold mb-1">Our account details mentioned below</p>
         <div class="grid grid-cols-[1fr_auto] gap-3 items-start mb-2">
           <div class="text-[10px] leading-snug space-y-0">
