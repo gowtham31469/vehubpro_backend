@@ -115,11 +115,20 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
         detail = (raw.get("detail_text") or "").strip()[:500]
         if not detail and si_obj and si_obj.description:
             detail = str(si_obj.description).strip()[:500]
-        gst_pct = (
-            Decimal(str(si_obj.gst_percentage))
-            if si_obj and si_obj.gst_percentage is not None
-            else Decimal("0")
-        )
+        # Client-supplied GST% (from the editable field in the job card editor)
+        # always wins — it only falls back to the catalog item's rate, then 0,
+        # when the tenant hasn't overridden it for this line.
+        raw_gst = raw.get("gst_percentage")
+        if raw_gst not in (None, ""):
+            gst_pct = Decimal(str(raw_gst))
+            if gst_pct < 0:
+                gst_pct = Decimal("0")
+            elif gst_pct > 100:
+                gst_pct = Decimal("100")
+        elif si_obj and si_obj.gst_percentage is not None:
+            gst_pct = Decimal(str(si_obj.gst_percentage))
+        else:
+            gst_pct = Decimal("0")
         rows.append({
             "sort_order": sort_order,
             "service_item_id": sid,

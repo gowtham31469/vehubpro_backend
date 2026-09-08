@@ -374,36 +374,40 @@
     </div>
     {% endif %}
 
-    <!-- Bank Details + Signatures start on a fresh page only when Terms & Conditions
-         precede them; otherwise they flow directly after Notes. -->
-    <div class="{% if terms_paragraphs %}new-page{% endif %}">
+    <!-- Bank Details + Signatures flow directly after Terms & Conditions (or Notes,
+         if there are no terms) — no forced page break. Each block below is marked
+         avoid-break so it's never split awkwardly across a page boundary, but short
+         terms text no longer wastes an entire blank page before this section. -->
+    <div>
       {% if bank_details %}
-      <p class="text-xs font-bold mb-3">Our account details mentioned below</p>
-      <div class="avoid-break grid grid-cols-[1fr_auto] gap-8 items-start mb-10">
-        <div class="text-xs space-y-1">
-          {% if bank_details.account_number %}<p>Account Number: <span class="font-bold">{{ bank_details.account_number }}</span></p>{% endif %}
-          {% if bank_details.ifsc_code %}<p>IFSC Code: <span class="font-bold">{{ bank_details.ifsc_code }}</span></p>{% endif %}
-          {% if bank_details.account_holder_name %}<p>Account Name: <span class="font-bold">{{ bank_details.account_holder_name }}</span></p>{% endif %}
-          {% if bank_details.account_type %}<p>Account Type: <span class="font-bold">{{ bank_details.account_type }}</span></p>{% endif %}
-          {% if bank_details.bank_name %}<p>Bank Name: <span class="font-bold">{{ bank_details.bank_name }}</span></p>{% endif %}
-          {% if bank_details.branch_name %}<p>Branch: <span class="font-bold">{{ bank_details.branch_name }}</span></p>
+      <div class="avoid-break">
+        <p class="text-[10px] font-bold mb-1">Our account details mentioned below</p>
+        <div class="grid grid-cols-[1fr_auto] gap-3 items-start mb-2">
+          <div class="text-[10px] leading-snug space-y-0">
+            {% if bank_details.account_number %}<p>Account Number: <span class="font-bold">{{ bank_details.account_number }}</span></p>{% endif %}
+            {% if bank_details.ifsc_code %}<p>IFSC Code: <span class="font-bold">{{ bank_details.ifsc_code }}</span></p>{% endif %}
+            {% if bank_details.account_holder_name %}<p>Account Name: <span class="font-bold">{{ bank_details.account_holder_name }}</span></p>{% endif %}
+            {% if bank_details.account_type %}<p>Account Type: <span class="font-bold">{{ bank_details.account_type }}</span></p>{% endif %}
+            {% if bank_details.bank_name %}<p>Bank Name: <span class="font-bold">{{ bank_details.bank_name }}</span></p>{% endif %}
+            {% if bank_details.branch_name %}<p>Branch: <span class="font-bold">{{ bank_details.branch_name }}</span></p>
+            {% endif %}
+            {% if bank_details.upi_id %}<p>UPI ID: <span class="font-bold">{{ bank_details.upi_id }}</span></p>{% endif %}
+          </div>
+          {% if qr_data_url %}
+          <img src="{{ qr_data_url }}" alt="UPI QR" class="w-28 h-28 object-contain border border-slate-300" />
           {% endif %}
-          {% if bank_details.upi_id %}<p>UPI ID: <span class="font-bold">{{ bank_details.upi_id }}</span></p>{% endif %}
         </div>
-        {% if qr_data_url %}
-        <img src="{{ qr_data_url }}" alt="UPI QR" class="w-32 h-32 object-contain border border-slate-300" />
-        {% endif %}
+        <p class="text-[10px] font-bold mb-2">I fully read &amp; understood about the terms &amp; conditions</p>
       </div>
-      <p class="text-xs font-bold mb-10">I fully read &amp; understood about the terms &amp; conditions</p>
       {% endif %}
 
       <!-- Signatures -->
-      <div class="grid grid-cols-2 gap-8 mt-10">
-        <div class="pt-10 avoid-break">
-          <div class="bg-slate-900 text-white text-xs font-bold px-3 py-1.5">Customer or Receiver Signature</div>
+      <div class="grid grid-cols-2 gap-6 mt-2">
+        <div class="pt-3 avoid-break">
+          <div class="bg-slate-900 text-white text-[10px] font-bold px-3 py-1">Customer or Receiver Signature</div>
         </div>
-        <div class="pt-10 avoid-break">
-          <div class="bg-slate-900 text-white text-xs font-bold px-3 py-1.5">Authorized Signature</div>
+        <div class="pt-3 avoid-break">
+          <div class="bg-slate-900 text-white text-[10px] font-bold px-3 py-1">Authorized Signature</div>
         </div>
       </div>
     </div>

@@ -102,6 +102,13 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
         required=False,
     )
     service_type = serializers.ChoiceField(choices=JobCardLineItem.SERVICE_TYPE_CHOICES, required=False)
+    # Writable — defaults to the catalog service item's GST% when omitted (see
+    # sync_job_card_line_items), but the tenant can override it per line (e.g. a
+    # custom item, or a one-off rate different from the catalog default).
+    gst_percentage = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False,
+        min_value=Decimal("0"), max_value=Decimal("100"),
+    )
 
     class Meta:
         model = JobCardLineItem
@@ -125,7 +132,6 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "line_total",
-            "gst_percentage",
             "cgst_amount",
             "sgst_amount",
             "created_at",

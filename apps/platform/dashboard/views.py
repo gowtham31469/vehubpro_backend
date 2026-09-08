@@ -41,7 +41,7 @@ Recommended DB indexes (add via migration if not present):
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum
 from django.db.models.functions import TruncMonth
@@ -110,15 +110,20 @@ class DashboardSummaryView(APIView):
       "completed_this_month": 47,
       "total_jobs": 312,
       "revenue_this_month": 184500.00,
+      "labour_revenue_this_month": 120000.00,
+      "part_revenue_this_month": 64500.00,
       "outstanding_amount": 32750.00
     }
 
     Definitions
     -----------
-    active_jobs           — job cards in (confirmed | in_progress | on_hold)
-    completed_this_month  — job cards reaching a closed status this calendar month
-    revenue_this_month    — sum of amount_paid on all invoices created this month
-    outstanding_amount    — sum of (total_amount - amount_paid) for unpaid/partial invoices
+    active_jobs                — job cards in (confirmed | in_progress | on_hold)
+    completed_this_month       — job cards reaching a closed status this calendar month
+    revenue_this_month         — sum of amount_paid on all invoices created this month
+    labour_revenue_this_month  — sum of line_total (pre-tax) on this month's invoice
+                                  line items with service_type="labour"
+    part_revenue_this_month    — same, for service_type="part"
+    outstanding_amount         — sum of (total_amount - amount_paid) for unpaid/partial invoices
     """
     permission_classes = [IsAuthenticatedCustomerAccess]
 
@@ -167,6 +172,17 @@ class DashboardSummaryView(APIView):
             .aggregate(total=Sum("amount_paid"))["total"] or 0
         )
 
+        # Labour vs. Parts split of this month's *billed* (pre-tax) amount —
+        # one round trip via conditional Sum, mirroring TopServicesView.
+        line_item_stats = (
+            InvoiceLineItem.objects
+            .filter(invoice__tenant_id=tenant_id, invoice__created_at__gte=month_start)
+            .aggregate(
+                labour_revenue=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_LABOUR)),
+                part_revenue=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_PART)),
+            )
+        )
+
         # ExpressionWrapper required because F-arithmetic output type is ambiguous
         outstanding_amount = (
             inv_base
@@ -192,6 +208,8 @@ class DashboardSummaryView(APIView):
                 "completed_this_month": jc_stats["completed_this_month"] or 0,
                 "total_jobs": jc_stats["total_jobs"] or 0,
                 "revenue_this_month": float(revenue_this_month),
+                "labour_revenue_this_month": float(line_item_stats["labour_revenue"] or 0),
+                "part_revenue_this_month": float(line_item_stats["part_revenue"] or 0),
                 "outstanding_amount": float(outstanding_amount),
             },
         )
@@ -443,6 +461,8 @@ class RecentActivityView(APIView):
 class TopServicesView(APIView):
     """
     GET /api/v1/dashboard/top-services/?limit=5&months=3
+    GET /api/v1/dashboard/top-services/?limit=5&current_month=true
+    GET /api/v1/dashboard/top-services/?limit=5&month=8&year=2026
 
     Returns the most frequently billed service descriptions ranked by
     occurrence count. Uses InvoiceLineItem (immutable snapshot) so it
@@ -450,14 +470,21 @@ class TopServicesView(APIView):
 
     Query params
     ------------
-    limit   int (default 5, max 20)   — number of services to return
-    months  int (default 3, max 12)   — lookback window in months
+    limit           int (default 5, max 20)   — number of services to return
+    months          int (default 3, max 12)   — trailing lookback window in months
+    current_month   bool (default false)      — if true, overrides `months` and
+                     scopes to the current calendar month (1st @ 00:00 → now)
+    month, year     int, int                  — if both given, overrides everything
+                     above and scopes to that specific calendar month in full
+                     (1st 00:00 → 1st of the following month, exclusive)
 
     Response shape
     --------------
+    "revenue" is the pre-tax taxable value; "gst" is CGST+SGST; "total" is
+    revenue + gst (the tax-inclusive billed amount).
     [
-      {"description": "Basic Car Service",  "count": 84, "revenue": 126000.00},
-      {"description": "Oil & Filter Change","count": 71, "revenue": 35500.00},
+      {"description": "Basic Car Service",  "count": 84, "revenue": 126000.00, "gst": 22680.00, "total": 148680.00},
+      {"description": "Oil & Filter Change","count": 71, "revenue": 35500.00, "gst": 6390.00, "total": 41890.00},
       ...
     ]
 
@@ -480,16 +507,37 @@ class TopServicesView(APIView):
         except (TypeError, ValueError):
             limit, months = 5, 3
 
-        since = timezone.now() - timedelta(days=months * 31)
+        current_month = request.query_params.get("current_month", "").strip().lower() in {"true", "1", "yes"}
+        since = _month_start() if current_month else timezone.now() - timedelta(days=months * 31)
+        until = None
+
+        month_param = request.query_params.get("month")
+        year_param = request.query_params.get("year")
+        if month_param and year_param:
+            try:
+                month_i = int(month_param)
+                year_i = int(year_param)
+                if not 1 <= month_i <= 12:
+                    raise ValueError("month out of range")
+                since = timezone.make_aware(datetime(year_i, month_i, 1))
+                next_month, next_year = (1, year_i + 1) if month_i == 12 else (month_i + 1, year_i)
+                until = timezone.make_aware(datetime(next_year, next_month, 1))
+            except (TypeError, ValueError):
+                pass  # fall back to the months/current_month window computed above
+
+        date_filter = Q(invoice__tenant_id=tenant_id, invoice__created_at__gte=since)
+        if until:
+            date_filter &= Q(invoice__created_at__lt=until)
 
         rows = (
             InvoiceLineItem.objects
-            .filter(
-                invoice__tenant_id=tenant_id,
-                invoice__created_at__gte=since,
-            )
+            .filter(date_filter)
             .values("description")
-            .annotate(count=Count("id"), revenue=Sum("line_total"))
+            .annotate(
+                count=Count("id"),
+                revenue=Sum("line_total"),
+                gst=Sum(F("cgst_amount") + F("sgst_amount")),
+            )
             .order_by("-count")[:limit]
         )
 
@@ -497,7 +545,12 @@ class TopServicesView(APIView):
             {
                 "description": r["description"],
                 "count": r["count"],
+                # "revenue" is the pre-tax taxable value (kept for backward
+                # compatibility with existing callers); "gst" and "total" let
+                # the UI show the tax-inclusive billed amount alongside it.
                 "revenue": float(r["revenue"] or 0),
+                "gst": float(r["gst"] or 0),
+                "total": float((r["revenue"] or 0) + (r["gst"] or 0)),
             }
             for r in rows
         ]
