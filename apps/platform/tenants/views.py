@@ -479,6 +479,23 @@ class PublicTenantBrandingAPIView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+        from apps.platform.modules.models import TenantModule
+
+        has_portfolio_access = TenantModule.objects.filter(
+            tenant=tenant,
+            module__key="portfolio",
+            module__is_active=True,
+            module__is_archived=False,
+        ).exists()
+        if not has_portfolio_access:
+            return error_response(
+                request,
+                code="PORTFOLIO_MODULE_NOT_ENABLED",
+                message="This dealership does not have the Portfolio module enabled.",
+                error="Portfolio access is not enabled for this tenant.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             branding = tenant.branding
         except TenantBranding.DoesNotExist:
