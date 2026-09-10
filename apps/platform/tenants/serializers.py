@@ -388,14 +388,33 @@ class TenantInvoiceSettingsSerializer(serializers.ModelSerializer):
 
 
 class PublicTenantBrandingSerializer(serializers.ModelSerializer):
-    """Read-only, no-auth serializer exposing only safe branding fields."""
+    """
+    Read-only, no-auth serializer exposing only safe, public-facing fields —
+    address and phone are the tenant's own business contact details (meant to
+    be shown to customers on their public showroom page), not customer PII.
+    """
 
     logo_url = serializers.SerializerMethodField()
     business_name = serializers.CharField(source="tenant.name", read_only=True)
+    address = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
 
     class Meta:
         model = TenantBranding
-        fields = ["logo_url", "primary_color", "business_name"]
+        fields = ["logo_url", "primary_color", "business_name", "address", "phone"]
 
     def get_logo_url(self, obj):
         return _resolve_branding_url(obj.logo)
+
+    def get_address(self, obj):
+        pii = getattr(obj.tenant, "pii", None)
+        return (pii.address or None) if pii else None
+
+    def get_phone(self, obj):
+        pii = getattr(obj.tenant, "pii", None)
+        if not pii or not pii.phone_encrypted:
+            return None
+        try:
+            return pii.get_phone() or None
+        except Exception:
+            return None

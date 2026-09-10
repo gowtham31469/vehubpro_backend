@@ -202,6 +202,7 @@ class FuelTypeDetailAPIView(APIView):
 
 class VehicleBrandListCreateAPIView(APIView):
     permission_classes = [IsAuthenticatedVehicleAccess]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         tenant_id, error = _tenant_context(request)
@@ -241,6 +242,7 @@ class VehicleBrandListCreateAPIView(APIView):
 
 class VehicleBrandDetailAPIView(APIView):
     permission_classes = [IsAuthenticatedVehicleAccess]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self, request, pk):
         tenant_id = getattr(request.user, "tenant_id", None)

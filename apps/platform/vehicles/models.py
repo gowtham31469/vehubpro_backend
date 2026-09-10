@@ -35,6 +35,7 @@ class VehicleBrand(BaseModel, SoftArchiveModel):
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="vehicle_brands")
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True, db_index=True)
+    logo = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
         db_table = "vehicle_brands"

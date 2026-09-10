@@ -5,6 +5,7 @@ from django.db import IntegrityError
 from rest_framework import serializers
 
 from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle
+from apps.platform.vehicles.models import VehicleBrand
 from core.storage import delete_stored_media, resolve_media_url, upload_image_file
 from core.storage.exceptions import StorageValidationError
 
@@ -223,6 +224,7 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
     """
 
     brand_name = serializers.CharField(source="brand.name", read_only=True)
+    brand_logo_url = serializers.SerializerMethodField()
     vehicle_model_name = serializers.CharField(source="vehicle_model.name", read_only=True)
     vehicle_type_name = serializers.CharField(source="vehicle_type.name", read_only=True)
     fuel_type_name = serializers.CharField(source="fuel_type.name", read_only=True)
@@ -234,6 +236,7 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "brand_name",
+            "brand_logo_url",
             "vehicle_model_name",
             "vehicle_type_name",
             "year",
@@ -246,8 +249,24 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+    def get_brand_logo_url(self, obj):
+        return resolve_media_url(obj.brand.logo) if obj.brand_id else None
+
     def get_photo_urls(self, obj):
         return [resolve_media_url(k) for k in (obj.photos or [])]
 
     def get_key_features_detail(self, obj):
         return [f.name for f in obj.key_features.all()]
+
+
+class PublicVehicleBrandSerializer(serializers.ModelSerializer):
+    """Read-only, no-auth serializer listing every brand a tenant has created."""
+
+    logo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VehicleBrand
+        fields = ["id", "name", "logo_url"]
+
+    def get_logo_url(self, obj):
+        return resolve_media_url(obj.logo)

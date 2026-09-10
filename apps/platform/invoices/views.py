@@ -165,8 +165,14 @@ class InvoiceListAPIView(APIView):
                          them. Omit to include both (no filtering by this field).
         fy_code         Filter by financial year code (e.g. "25-26").
         search          Prefix search on invoice_number or vehicle registration snapshot.
+        date_from       Only invoices created on/after this date (YYYY-MM-DD).
+        date_to         Only invoices created on/before this date (YYYY-MM-DD).
+        include_customer_name  "true" to decrypt and include each invoice's
+                         customer_name (off by default — this endpoint is
+                         otherwise PII-free). Used by the invoice report export.
         page            Page number (default 1).
-        page_size       Page size (default 10, max 100).
+        page_size       Page size (default 10, max 100; "all" returns every
+                         matching row unpaginated, for report exports).
     """
 
     permission_classes = [IsAuthenticatedInvoiceAccess]
@@ -176,45 +182,217 @@ class InvoiceListAPIView(APIView):
         if error:
             return error
 
-        queryset = (
-            Invoice.objects.filter(tenant_id=tenant_id)
-            .select_related("job_card")
-            .order_by("-created_at", "-invoice_number")
+        queryset, date_from, date_to = _filter_invoices_from_request(
+            Invoice.objects.filter(tenant_id=tenant_id).select_related("job_card"),
+            request,
         )
+        queryset = queryset.order_by("-created_at", "-invoice_number")
 
-        payment_status = request.query_params.get("payment_status", "").strip()
-        if payment_status in {Invoice.PAYMENT_STATUS_UNPAID, Invoice.PAYMENT_STATUS_PARTIAL, Invoice.PAYMENT_STATUS_PAID}:
-            queryset = queryset.filter(payment_status=payment_status)
-
-        invoice_type = request.query_params.get("invoice_type", "").strip()
-        if invoice_type in {Invoice.INVOICE_TYPE_GST, Invoice.INVOICE_TYPE_NON_GST}:
-            queryset = queryset.filter(invoice_type=invoice_type)
-
-        is_cancelled_param = request.query_params.get("is_cancelled", "").strip().lower()
-        if is_cancelled_param in {"true", "1", "yes"}:
-            queryset = queryset.filter(is_cancelled=True)
-        elif is_cancelled_param in {"false", "0", "no"}:
-            queryset = queryset.filter(is_cancelled=False)
-
-        fy_code = request.query_params.get("fy_code", "").strip()
-        if fy_code:
-            queryset = queryset.filter(fy_code=fy_code)
-
-        search = request.query_params.get("search", "").strip()
-        if search:
-            from django.db.models import Q
-            queryset = queryset.filter(
-                Q(invoice_number__icontains=search)
-                | Q(vehicle_registration_no_snapshot__icontains=search)
+        include_customer_name = request.query_params.get("include_customer_name", "").strip().lower() in {
+            "true", "1", "yes",
+        }
+        if include_customer_name and not (date_from and date_to):
+            # This flag is only ever sent by the invoice report — reports must
+            # be date-bounded so a tenant with years of history can't trigger
+            # an unbounded, all-time PII-decrypting query.
+            return error_response(
+                request,
+                code="DATE_RANGE_REQUIRED",
+                message="A date range is required to include customer names.",
+                error="Both date_from and date_to are required when include_customer_name is set.",
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         return success_response(
             request,
             code="DATA_RETRIEVED",
             message="Invoices retrieved successfully.",
-            data=build_paginated_data(request, queryset, InvoiceListSerializer),
+            data=build_paginated_data(
+                request, queryset, InvoiceListSerializer,
+                context={"include_customer_name": include_customer_name},
+            ),
             status_code=status.HTTP_200_OK,
         )
+
+
+# ── Invoice report (summary + CSV export) ─────────────────────────────────────
+# Both endpoints require date_from/date_to so a tenant with years of invoice
+# history can never trigger an unbounded, whole-table scan/export. The summary
+# is a single DB-side aggregate (fast regardless of row count); the export
+# streams rows straight from the database cursor so backend memory stays flat
+# even across a very large date range.
+
+def _filter_invoices_from_request(queryset, request):
+    """Applies the invoice list's standard filters. Returns (queryset, date_from, date_to)."""
+    payment_status = request.query_params.get("payment_status", "").strip()
+    if payment_status in {Invoice.PAYMENT_STATUS_UNPAID, Invoice.PAYMENT_STATUS_PARTIAL, Invoice.PAYMENT_STATUS_PAID}:
+        queryset = queryset.filter(payment_status=payment_status)
+
+    invoice_type = request.query_params.get("invoice_type", "").strip()
+    if invoice_type in {Invoice.INVOICE_TYPE_GST, Invoice.INVOICE_TYPE_NON_GST}:
+        queryset = queryset.filter(invoice_type=invoice_type)
+
+    is_cancelled_param = request.query_params.get("is_cancelled", "").strip().lower()
+    if is_cancelled_param in {"true", "1", "yes"}:
+        queryset = queryset.filter(is_cancelled=True)
+    elif is_cancelled_param in {"false", "0", "no"}:
+        queryset = queryset.filter(is_cancelled=False)
+
+    fy_code = request.query_params.get("fy_code", "").strip()
+    if fy_code:
+        queryset = queryset.filter(fy_code=fy_code)
+
+    search = request.query_params.get("search", "").strip()
+    if search:
+        from django.db.models import Q
+        queryset = queryset.filter(
+            Q(invoice_number__icontains=search)
+            | Q(vehicle_registration_no_snapshot__icontains=search)
+        )
+
+    date_from = request.query_params.get("date_from", "").strip()
+    if date_from:
+        queryset = queryset.filter(created_at__date__gte=date_from)
+
+    date_to = request.query_params.get("date_to", "").strip()
+    if date_to:
+        queryset = queryset.filter(created_at__date__lte=date_to)
+
+    return queryset, date_from, date_to
+
+
+def _require_report_date_range(request):
+    """Returns (date_from, date_to, error_response) — exactly one of the last two is None."""
+    date_from = request.query_params.get("date_from", "").strip()
+    date_to = request.query_params.get("date_to", "").strip()
+    if not date_from or not date_to:
+        return None, None, error_response(
+            request,
+            code="DATE_RANGE_REQUIRED",
+            message="A date range is required to generate this report.",
+            error="Both date_from and date_to query parameters are required.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    return date_from, date_to, None
+
+
+class InvoiceReportSummaryAPIView(APIView):
+    """
+    GET /api/v1/invoices/reports/summary/
+
+    Aggregate KPIs (count, total invoiced, total collected, outstanding
+    balance) for the invoice report — computed entirely in the database via
+    Sum()/Count(), so it stays fast no matter how many invoices match.
+    Accepts the same filters as the list endpoint; date_from and date_to
+    are required.
+    """
+
+    permission_classes = [IsAuthenticatedInvoiceAccess]
+
+    def get(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        _, _, date_error = _require_report_date_range(request)
+        if date_error:
+            return date_error
+
+        from django.db.models import Count, F, Sum
+
+        queryset, _, _ = _filter_invoices_from_request(
+            Invoice.objects.filter(tenant_id=tenant_id), request
+        )
+        aggregates = queryset.aggregate(
+            count=Count("id"),
+            total_invoiced=Sum("total_amount"),
+            total_collected=Sum("amount_paid"),
+            total_outstanding=Sum(F("total_amount") - F("amount_paid")),
+        )
+
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Invoice report summary retrieved successfully.",
+            data={
+                "count": aggregates["count"] or 0,
+                "total_invoiced": str(aggregates["total_invoiced"] or 0),
+                "total_collected": str(aggregates["total_collected"] or 0),
+                "total_outstanding": str(aggregates["total_outstanding"] or 0),
+            },
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class InvoiceReportExportAPIView(APIView):
+    """
+    GET /api/v1/invoices/reports/export/
+
+    Streams the invoice report as a CSV file directly from the database
+    cursor (Invoice.objects...iterator()) — memory stays flat regardless of
+    how many rows match, so a multi-year, lakhs-of-rows export never has to
+    hold the full result set in memory on the backend. date_from and date_to
+    are required.
+    """
+
+    permission_classes = [IsAuthenticatedInvoiceAccess]
+
+    def get(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        date_from, date_to, date_error = _require_report_date_range(request)
+        if date_error:
+            return date_error
+
+        queryset, _, _ = _filter_invoices_from_request(
+            Invoice.objects.filter(tenant_id=tenant_id), request
+        )
+        queryset = queryset.order_by("-created_at", "-invoice_number")
+
+        from django.http import StreamingHttpResponse
+
+        def row_stream():
+            import csv
+            import io
+
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow([
+                "Invoice No.", "Date", "Customer", "Type",
+                "Total Amount", "Amount Paid", "Balance Due", "Status", "Cancelled",
+            ])
+            yield buf.getvalue()
+
+            for invoice in queryset.iterator(chunk_size=2000):
+                buf.seek(0)
+                buf.truncate(0)
+                if invoice.is_pii_erased:
+                    customer_name = "[ERASED]"
+                else:
+                    try:
+                        customer_name = invoice.get_customer_name() or ""
+                    except Exception:
+                        customer_name = ""
+                balance_due = max(invoice.total_amount - invoice.amount_paid, 0)
+                writer.writerow([
+                    invoice.invoice_number,
+                    invoice.created_at.strftime("%Y-%m-%d"),
+                    customer_name,
+                    "GST" if invoice.invoice_type == Invoice.INVOICE_TYPE_GST else "Non-GST",
+                    invoice.total_amount,
+                    invoice.amount_paid,
+                    balance_due,
+                    "Cancelled" if invoice.is_cancelled else invoice.get_payment_status_display(),
+                    "Yes" if invoice.is_cancelled else "No",
+                ])
+                yield buf.getvalue()
+
+        filename = f"invoice_report_{date_from}_to_{date_to}.csv"
+        response = StreamingHttpResponse(row_stream(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 # ── Invoice detail ────────────────────────────────────────────────────────────

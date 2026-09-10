@@ -6,11 +6,15 @@ from apps.platform.invoices.views import (
     InvoiceListAPIView,
     InvoicePdfAPIView,
     InvoicePreviewHtmlAPIView,
+    InvoiceReportExportAPIView,
+    InvoiceReportSummaryAPIView,
     RecordPaymentAPIView,
 )
 
 urlpatterns = [
     path("", InvoiceListAPIView.as_view(), name="invoice-list"),
+    path("reports/summary/", InvoiceReportSummaryAPIView.as_view(), name="invoice-report-summary"),
+    path("reports/export/", InvoiceReportExportAPIView.as_view(), name="invoice-report-export"),
     path("<uuid:pk>/", InvoiceDetailAPIView.as_view(), name="invoice-detail"),
     path("<uuid:pk>/preview-html/", InvoicePreviewHtmlAPIView.as_view(), name="invoice-preview-html"),
     path("<uuid:pk>/record-payment/", RecordPaymentAPIView.as_view(), name="invoice-record-payment"),

@@ -483,11 +483,24 @@ class PublicTenantBrandingAPIView(APIView):
             branding = tenant.branding
         except TenantBranding.DoesNotExist:
             # Tenant exists but branding record hasn't been created yet — return safe defaults.
+            pii = getattr(tenant, "pii", None)
+            phone = None
+            if pii and pii.phone_encrypted:
+                try:
+                    phone = pii.get_phone() or None
+                except Exception:
+                    phone = None
             return success_response(
                 request,
                 code="DATA_RETRIEVED",
                 message="Tenant branding retrieved successfully.",
-                data={"logo_url": None, "primary_color": None, "business_name": tenant.name},
+                data={
+                    "logo_url": None,
+                    "primary_color": None,
+                    "business_name": tenant.name,
+                    "address": (pii.address or None) if pii else None,
+                    "phone": phone,
+                },
                 status_code=status.HTTP_200_OK,
             )
 

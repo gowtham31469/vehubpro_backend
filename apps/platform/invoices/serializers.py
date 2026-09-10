@@ -57,11 +57,19 @@ class InvoicePaymentSerializer(serializers.ModelSerializer):
 
 
 class InvoiceListSerializer(serializers.ModelSerializer):
-    """Compact representation for list views — no PII, no line items."""
+    """
+    Compact representation for list views — no PII, no line items, by default.
+
+    customer_name is decrypted and included ONLY when the view opts in via
+    context={"include_customer_name": True} (e.g. the invoice report export) —
+    every other consumer of this serializer keeps getting the PII-free response
+    documented above.
+    """
 
     balance_due = serializers.SerializerMethodField()
     pdf_url = serializers.SerializerMethodField()
     cancelled_by_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -72,6 +80,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "invoice_type",
             "job_card",
             "tenant_name_snapshot",
+            "customer_name",
             "vehicle_registration_no_snapshot",
             "vehicle_label_snapshot",
             "subtotal",
@@ -95,6 +104,16 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_customer_name(self, obj) -> str | None:
+        if not self.context.get("include_customer_name"):
+            return None
+        if obj.is_pii_erased:
+            return "[ERASED]"
+        try:
+            return obj.get_customer_name()
+        except Exception:
+            return None
 
     def get_cancelled_by_name(self, obj) -> str | None:
         if not obj.cancelled_by_id:

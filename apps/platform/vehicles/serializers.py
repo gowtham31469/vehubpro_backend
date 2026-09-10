@@ -63,6 +63,11 @@ class FuelTypeSerializer(serializers.ModelSerializer):
 
 
 class VehicleBrandSerializer(serializers.ModelSerializer):
+    # Write-only: accepts multipart file upload
+    logo_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    # Read-only: always returns a usable URL (LOCAL or S3 pre-signed)
+    logo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = VehicleBrand
         fields = [
@@ -70,12 +75,27 @@ class VehicleBrandSerializer(serializers.ModelSerializer):
             "tenant",
             "name",
             "is_active",
+            "logo_file",
+            "logo_url",
             "is_archived",
             "archived_at",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "tenant", "is_archived", "archived_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "tenant", "logo_url", "is_archived", "archived_at", "created_at", "updated_at"]
+
+    def get_logo_url(self, obj) -> str | None:
+        return resolve_media_url(obj.logo)
+
+    def _handle_logo_upload(self, logo_file, record_id) -> str | None:
+        try:
+            return upload_image_file(
+                logo_file,
+                folder="vehicle_brands",
+                record_id=str(record_id),
+            )
+        except StorageValidationError as exc:
+            raise serializers.ValidationError({"logo_file": str(exc)}) from exc
 
     def validate_name(self, value):
         name = (value or "").strip()
@@ -84,16 +104,29 @@ class VehicleBrandSerializer(serializers.ModelSerializer):
         return name
 
     def create(self, validated_data):
+        logo_file = validated_data.pop("logo_file", None)
         try:
-            return super().create(validated_data)
+            instance = super().create(validated_data)
         except IntegrityError as e:
             raise serializers.ValidationError(_vehicle_brand_integrity_errors(e)) from None
+        if logo_file:
+            instance.logo = self._handle_logo_upload(logo_file, instance.id)
+            instance.save(update_fields=["logo", "updated_at"])
+        return instance
 
     def update(self, instance, validated_data):
+        logo_file = validated_data.pop("logo_file", None)
         try:
-            return super().update(instance, validated_data)
+            instance = super().update(instance, validated_data)
         except IntegrityError as e:
             raise serializers.ValidationError(_vehicle_brand_integrity_errors(e)) from None
+        if logo_file:
+            old_logo = instance.logo
+            instance.logo = self._handle_logo_upload(logo_file, instance.id)
+            instance.save(update_fields=["logo", "updated_at"])
+            if old_logo:
+                delete_stored_media(old_logo)
+        return instance
 
 
 class VehicleModelSerializer(serializers.ModelSerializer):
