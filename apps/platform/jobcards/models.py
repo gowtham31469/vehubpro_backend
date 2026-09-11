@@ -75,6 +75,23 @@ class JobCardLineItem(BaseModel):
         default=0,
         help_text="Snapshot of the linked catalog service item's GST% at sync time (0 for custom lines).",
     )
+    PRICE_TYPE_EXCLUSIVE = "exclusive"
+    PRICE_TYPE_INCLUSIVE = "inclusive"
+    PRICE_TYPE_CHOICES = [
+        (PRICE_TYPE_EXCLUSIVE, "Exclusive of GST"),
+        (PRICE_TYPE_INCLUSIVE, "Inclusive of GST"),
+    ]
+    price_type = models.CharField(
+        max_length=10,
+        choices=PRICE_TYPE_CHOICES,
+        default=PRICE_TYPE_EXCLUSIVE,
+        help_text=(
+            "Snapshot of the linked catalog service item's price_type at sync time "
+            "(always 'exclusive' for custom lines with no catalog match). When "
+            "'inclusive', unit_price is GST-inclusive and line_total holds the "
+            "reverse-calculated taxable value, not unit_price*quantity."
+        ),
+    )
     cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     detail_text = models.CharField(

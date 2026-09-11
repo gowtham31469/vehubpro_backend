@@ -7,7 +7,11 @@ from django.utils import timezone
 
 from apps.common.utils.pdf_documents import compute_round_off
 from apps.platform.jobcards.models import indian_fy_code
-from apps.platform.jobcards.utils import allocate_cents_by_weight, extended_line_amount
+from apps.platform.jobcards.utils import (
+    allocate_cents_by_weight,
+    extended_line_amount,
+    reverse_gst_taxable_amount,
+)
 from apps.platform.quotations.models import Quotation, QuotationFySequence, QuotationLineItem
 from apps.platform.services.models import ServiceItem
 
@@ -82,6 +86,11 @@ def sync_quotation_line_items(quotation: Quotation, items_data: list | None, ten
             if si_obj and si_obj.gst_percentage is not None
             else Decimal("0")
         )
+        # Inherited verbatim from the catalog item (never overridable here,
+        # same as gst_percentage above); custom lines are always exclusive.
+        price_type = si_obj.price_type if si_obj else ServiceItem.PRICE_TYPE_EXCLUSIVE
+        if price_type == ServiceItem.PRICE_TYPE_INCLUSIVE:
+            lt = reverse_gst_taxable_amount(lt, gst_pct)
         rows.append({
             "sort_order": sort_order,
             "service_item_id": sid,
@@ -93,6 +102,7 @@ def sync_quotation_line_items(quotation: Quotation, items_data: list | None, ten
             "discount_amount": da,
             "line_total": lt,
             "gst_percentage": gst_pct,
+            "price_type": price_type,
         })
 
     if not rows:
@@ -129,6 +139,7 @@ def sync_quotation_line_items(quotation: Quotation, items_data: list | None, ten
             discount_amount=r["discount_amount"],
             line_total=r["line_total"],
             gst_percentage=r["gst_percentage"],
+            price_type=r["price_type"],
             cgst_amount=cgst,
             sgst_amount=sgst,
         ))

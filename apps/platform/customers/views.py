@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -39,6 +40,13 @@ class CustomerListCreateAPIView(APIView):
             tenant_id=tenant_id,
             is_archived=_is_archive_flag(request),
         ).order_by("-created_at")
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(full_name__icontains=search)
+                | Q(email__icontains=search)
+                | Q(phone__icontains=search)
+            )
         return success_response(
             request,
             code="DATA_RETRIEVED",

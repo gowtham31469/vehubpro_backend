@@ -60,6 +60,13 @@ class ServiceItem(BaseModel, SoftArchiveModel):
         (SERVICE_TYPE_LABOUR, "Labour"),
     ]
 
+    PRICE_TYPE_EXCLUSIVE = "exclusive"
+    PRICE_TYPE_INCLUSIVE = "inclusive"
+    PRICE_TYPE_CHOICES = [
+        (PRICE_TYPE_EXCLUSIVE, "Exclusive of GST"),
+        (PRICE_TYPE_INCLUSIVE, "Inclusive of GST"),
+    ]
+
     tenant = models.ForeignKey(
         "tenants.Tenant", on_delete=models.CASCADE, related_name="service_items"
     )
@@ -72,6 +79,16 @@ class ServiceItem(BaseModel, SoftArchiveModel):
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     hsn_code = models.CharField(max_length=8, null=True, blank=True)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    price_type = models.CharField(
+        max_length=10,
+        choices=PRICE_TYPE_CHOICES,
+        default=PRICE_TYPE_EXCLUSIVE,
+        help_text=(
+            "Whether base_price already includes GST ('inclusive', e.g. a fixed "
+            "₹1200 package rate) or GST is added on top of it ('exclusive', the "
+            "default — matches all pre-existing service items)."
+        ),
+    )
     unit_type = models.CharField(max_length=20, choices=UNIT_TYPE_CHOICES, default="per_service")
     applicable_vehicle_types = ArrayField(
         models.CharField(max_length=50),

@@ -35,6 +35,7 @@ class InvoiceLineItemSerializer(serializers.ModelSerializer):
             "unit_price",
             "discount_amount",
             "gst_percentage",
+            "price_type",
             "cgst_amount",
             "sgst_amount",
             "line_total",

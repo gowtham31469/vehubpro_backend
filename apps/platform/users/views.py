@@ -116,6 +116,25 @@ class StaffUserListCreateAPIView(APIView):
             .exclude(role__code="SUPER_ADMIN")
             .order_by("-created_at")
         )
+
+        search = request.query_params.get("search", "").strip().lower()
+        if search:
+            # Staff PII is Fernet-encrypted at rest (non-deterministic), so it
+            # can't be matched with a DB-level icontains. Tenant staff rosters
+            # are small, so decrypting them in Python and matching against the
+            # full roster (not just whatever page was requested) is the
+            # practical way to make search actually cover everyone.
+            matched_ids = [
+                user.id
+                for user in queryset
+                if hasattr(user, "pii") and search in " ".join(filter(None, [
+                    user.pii.get_full_name(),
+                    user.pii.get_email(),
+                    user.pii.get_phone(),
+                ])).lower()
+            ]
+            queryset = queryset.filter(pk__in=matched_ids)
+
         return success_response(
             request,
             code="DATA_RETRIEVED",

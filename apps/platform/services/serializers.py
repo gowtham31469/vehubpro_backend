@@ -49,6 +49,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default=None)
     image_url = serializers.SerializerMethodField()
     service_type = serializers.ChoiceField(choices=ServiceItem.SERVICE_TYPE_CHOICES)
+    price_type = serializers.ChoiceField(choices=ServiceItem.PRICE_TYPE_CHOICES, required=False)
     applicable_vehicle_types = serializers.ListField(
         child=serializers.CharField(), allow_empty=False,
     )
@@ -66,6 +67,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "base_price",
             "hsn_code",
             "gst_percentage",
+            "price_type",
             "unit_type",
             "applicable_vehicle_types",
             "image",

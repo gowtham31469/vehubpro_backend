@@ -124,6 +124,7 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
             "discount_amount",
             "line_total",
             "gst_percentage",
+            "price_type",
             "cgst_amount",
             "sgst_amount",
             "created_at",
@@ -132,6 +133,7 @@ class JobCardLineItemSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "line_total",
+            "price_type",
             "cgst_amount",
             "sgst_amount",
             "created_at",

@@ -194,6 +194,7 @@ class QuotationService:
                 discount_amount=li.discount_amount,
                 line_total=li.line_total,
                 gst_percentage=li.gst_percentage,
+                price_type=li.price_type,
                 cgst_amount=li.cgst_amount,
                 sgst_amount=li.sgst_amount,
             )
@@ -258,6 +259,7 @@ class QuotationService:
                 discount_amount=li.discount_amount,
                 line_total=li.line_total,
                 gst_percentage=li.gst_percentage,
+                price_type=li.price_type,
                 cgst_amount=li.cgst_amount,
                 sgst_amount=li.sgst_amount,
             )

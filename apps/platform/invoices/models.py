@@ -340,6 +340,18 @@ class InvoiceLineItem(BaseModel):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    PRICE_TYPE_EXCLUSIVE = "exclusive"
+    PRICE_TYPE_INCLUSIVE = "inclusive"
+    PRICE_TYPE_CHOICES = [
+        (PRICE_TYPE_EXCLUSIVE, "Exclusive of GST"),
+        (PRICE_TYPE_INCLUSIVE, "Inclusive of GST"),
+    ]
+    price_type = models.CharField(
+        max_length=10,
+        choices=PRICE_TYPE_CHOICES,
+        default=PRICE_TYPE_EXCLUSIVE,
+        help_text="Snapshot of the job card line's price_type at invoice generation time.",
+    )
     cgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)

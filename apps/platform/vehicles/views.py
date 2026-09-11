@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -214,6 +215,9 @@ class VehicleBrandListCreateAPIView(APIView):
         is_active = _is_active_flag(request)
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -340,6 +344,9 @@ class VehicleModelListCreateAPIView(APIView):
             queryset = queryset.filter(is_active=is_active)
             if is_active:
                 queryset = queryset.filter(brand__is_active=True)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(Q(name__icontains=search) | Q(brand__name__icontains=search))
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -454,6 +461,14 @@ class ServiceVehicleListCreateAPIView(APIView):
         customer_id = request.query_params.get("customer_id")
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id, customer__tenant_id=tenant_id)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(registration_no__icontains=search)
+                | Q(customer__full_name__icontains=search)
+                | Q(brand__name__icontains=search)
+                | Q(vehicle_model__name__icontains=search)
+            )
         return success_response(
             request,
             code="DATA_RETRIEVED",

@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -45,9 +46,13 @@ class InventoryVehicleListCreateAPIView(APIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
 
-        search = request.query_params.get("search")
+        search = request.query_params.get("search", "").strip()
         if search:
-            queryset = queryset.filter(vehicle_model__name__icontains=search)
+            queryset = queryset.filter(
+                Q(vehicle_model__name__icontains=search)
+                | Q(brand__name__icontains=search)
+                | Q(registration_no__icontains=search)
+            )
 
         return success_response(
             request,
@@ -161,6 +166,9 @@ class InventoryFeatureListCreateAPIView(APIView):
         is_active = request.query_params.get("is_active")
         if is_active is not None:
             queryset = queryset.filter(is_active=str(is_active).strip().lower() in {"true", "1", "yes"})
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
         return success_response(
             request,
             code="DATA_RETRIEVED",

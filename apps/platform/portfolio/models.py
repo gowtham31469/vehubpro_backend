@@ -53,6 +53,25 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
         (TRANSMISSION_MANUAL, "Manual"),
     ]
 
+    # A fixed, universal palette rather than tenant-managed master data (like
+    # VehicleBrand/FuelType) — car color is a standard concept, not something
+    # a dealership would want to define per-tenant. Mirrored on the frontend
+    # (with hex swatches) in AdminInventoryVehicleForm.jsx and
+    # PublicInventoryListing.jsx — keep the codes in sync if this changes.
+    COLOR_CHOICES = [
+        ("white", "White"),
+        ("black", "Black"),
+        ("silver", "Silver"),
+        ("gray", "Gray"),
+        ("red", "Red"),
+        ("blue", "Blue"),
+        ("green", "Green"),
+        ("yellow", "Yellow"),
+        ("orange", "Orange"),
+        ("beige", "Beige"),
+        ("purple", "Purple"),
+    ]
+
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="inventory_vehicles")
 
     vehicle_type = models.ForeignKey("vehicles.VehicleType", on_delete=models.PROTECT, related_name="inventory_vehicles")
@@ -62,6 +81,7 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
 
     fuel_type = models.ForeignKey("vehicles.FuelType", on_delete=models.PROTECT, related_name="inventory_vehicles")
     transmission = models.CharField(max_length=20, choices=TRANSMISSION_CHOICES, default=TRANSMISSION_AUTOMATIC)
+    color = models.CharField(max_length=20, choices=COLOR_CHOICES, blank=True, default="")
     mileage_km = models.PositiveIntegerField(default=0, help_text="Odometer reading in kilometers.")
     key_features = models.ManyToManyField(
         InventoryFeature,

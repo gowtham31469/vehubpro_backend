@@ -63,6 +63,19 @@ def allocate_cents_by_weight(weights: list[int], total_cents: int) -> list[int]:
     return base
 
 
+def reverse_gst_taxable_amount(gross_amount: Decimal, gst_percentage: Decimal) -> Decimal:
+    """
+    Extract the pre-tax taxable value from a GST-inclusive gross amount
+    (e.g. a ₹1200 package rate at 12% GST → ₹1071.43 taxable, ₹128.57 tax).
+    Falls back to the gross amount unchanged when there's no GST rate to
+    reverse out of it (avoids a division by a zero-adjacent denominator).
+    """
+    if gst_percentage <= 0:
+        return gross_amount
+    divisor = Decimal("1") + (gst_percentage / Decimal("100"))
+    return (gross_amount / divisor).quantize(Decimal("0.01"))
+
+
 def _resolve_line_service_item(raw_si, tenant_id):
     """
     `items_data` may come from DRF validated_data where `service_item` is a ServiceItem
@@ -115,11 +128,19 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
         detail = (raw.get("detail_text") or "").strip()[:500]
         if not detail and si_obj and si_obj.description:
             detail = str(si_obj.description).strip()[:500]
+        # Inclusive/exclusive pricing is a catalog-level decision, inherited
+        # verbatim — never overridable per line (custom lines with no catalog
+        # match are always exclusive, matching pre-existing behavior for them).
+        price_type = si_obj.price_type if si_obj else ServiceItem.PRICE_TYPE_EXCLUSIVE
+        is_inclusive = price_type == ServiceItem.PRICE_TYPE_INCLUSIVE
         # Client-supplied GST% (from the editable field in the job card editor)
-        # always wins — it only falls back to the catalog item's rate, then 0,
-        # when the tenant hasn't overridden it for this line.
+        # wins for exclusive lines — it only falls back to the catalog item's
+        # rate, then 0, when the tenant hasn't overridden it for this line.
+        # Inclusive lines ignore any override: since the customer-facing price
+        # is fixed, changing GST% there wouldn't change what's charged, only
+        # silently corrupt the reverse-calculated taxable value.
         raw_gst = raw.get("gst_percentage")
-        if raw_gst not in (None, ""):
+        if not is_inclusive and raw_gst not in (None, ""):
             gst_pct = Decimal(str(raw_gst))
             if gst_pct < 0:
                 gst_pct = Decimal("0")
@@ -129,6 +150,12 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
             gst_pct = Decimal(str(si_obj.gst_percentage))
         else:
             gst_pct = Decimal("0")
+        # For inclusive items, `up`/`lt` above are GST-inclusive (what's actually
+        # charged); line_total must hold the taxable (pre-tax) value so it can
+        # feed the same subtotal/tax math below unchanged — exclusive lines are
+        # untouched (lt already is the taxable value there).
+        if is_inclusive:
+            lt = reverse_gst_taxable_amount(lt, gst_pct)
         rows.append({
             "sort_order": sort_order,
             "service_item_id": sid,
@@ -140,6 +167,7 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
             "discount_amount": da,
             "line_total": lt,
             "gst_percentage": gst_pct,
+            "price_type": price_type,
         })
 
     if not rows:
@@ -176,6 +204,7 @@ def sync_job_card_line_items(job_card: JobCard, items_data: list | None, tenant_
             discount_amount=r["discount_amount"],
             line_total=r["line_total"],
             gst_percentage=r["gst_percentage"],
+            price_type=r["price_type"],
             cgst_amount=cgst,
             sgst_amount=sgst,
         ))

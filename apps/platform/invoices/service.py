@@ -301,6 +301,7 @@ class InvoiceService:
                     unit_price=line.unit_price,
                     discount_amount=line.discount_amount,
                     gst_percentage=line.gst_percentage if is_gst else Decimal("0.00"),
+                    price_type=line.price_type,
                     cgst_amount=line.cgst_amount if is_gst else Decimal("0.00"),
                     sgst_amount=line.sgst_amount if is_gst else Decimal("0.00"),
                     line_total=line.line_total,
