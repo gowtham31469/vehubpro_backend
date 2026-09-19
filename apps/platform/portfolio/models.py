@@ -9,16 +9,22 @@ from apps.common.utils.models import BaseModel, SoftArchiveModel
 class InventoryFeature(BaseModel, SoftArchiveModel):
     """Tenant-managed key-feature tag (e.g. Sunroof, Leather Seats) for inventory listings."""
 
+    CATEGORY_COMFORT = "comfort_convenience"
     CATEGORY_SAFETY = "safety"
-    CATEGORY_FEATURE = "feature"
+    CATEGORY_ENTERTAINMENT = "entertainment_communication"
+    CATEGORY_EXTERIOR = "exterior"
+    CATEGORY_INTERIOR = "interior"
     CATEGORY_CHOICES = [
+        (CATEGORY_COMFORT, "Comfort & Convenience"),
         (CATEGORY_SAFETY, "Safety"),
-        (CATEGORY_FEATURE, "Feature"),
+        (CATEGORY_ENTERTAINMENT, "Entertainment & Communication"),
+        (CATEGORY_EXTERIOR, "Exterior"),
+        (CATEGORY_INTERIOR, "Interior"),
     ]
 
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="inventory_features")
     name = models.CharField(max_length=100)
-    category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default=CATEGORY_FEATURE)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES, default=CATEGORY_COMFORT)
     is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
@@ -98,6 +104,14 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
     )
 
     listing_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Optional limited-time offer on top of listing_price. When set (and not
+    # expired), the public detail page shows original_price struck through,
+    # a "₹X OFF" badge, and a "Valid for N day(s)" countdown to offer_valid_until.
+    # Both blank means no offer — listing_price displays as a plain price.
+    original_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    offer_valid_until = models.DateField(null=True, blank=True)
+
     insurance_policy_no = models.CharField(max_length=100, blank=True, default="")
     registration_no = models.CharField(max_length=20, blank=True, default="")
     tax_expiration_date = models.DateField(null=True, blank=True)
@@ -108,6 +122,13 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
         blank=True,
         help_text="Storage keys (LOCAL path or S3 key) for uploaded listing photos, in display order.",
     )
+
+    # Free-text marketing bullets specific to this one listing (e.g. "3 new
+    # tyres", "Bangalore's most affordable car") — deliberately NOT reusable
+    # master data like InventoryFeature, since each is a one-off claim about
+    # this particular car. Stored as [{"title": str, "description": str}, ...],
+    # capped/validated in InventoryVehicleSerializer.
+    reasons_to_buy = models.JSONField(default=list, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_AVAILABLE, db_index=True)
 

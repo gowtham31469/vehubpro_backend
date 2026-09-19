@@ -86,6 +86,52 @@ class PublicInventoryVehiclesAPIView(APIView):
         )
 
 
+class PublicInventoryVehicleDetailAPIView(APIView):
+    """
+    Public endpoint — no authentication required.
+
+    Single-vehicle detail for the public showroom's "View Details" page.
+    Scoped the same way as the list endpoint (available + not archived) so a
+    listing that's since sold/booked simply 404s here too, rather than
+    leaving a stale "available" detail page reachable by direct link.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, domain: str, pk):
+        tenant, error = _resolve_public_tenant(request, domain)
+        if error:
+            return error
+
+        vehicle = InventoryVehicle.objects.select_related(
+            "brand", "vehicle_model", "vehicle_type", "fuel_type"
+        ).prefetch_related("key_features").filter(
+            tenant=tenant,
+            pk=pk,
+            status=InventoryVehicle.STATUS_AVAILABLE,
+            is_archived=False,
+        ).first()
+
+        if vehicle is None:
+            return error_response(
+                request,
+                code="VEHICLE_NOT_FOUND",
+                message="This listing is no longer available.",
+                error="Vehicle not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = PublicInventoryVehicleSerializer(vehicle)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Inventory vehicle retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+
 class PublicVehicleBrandsAPIView(APIView):
     """
     Public endpoint — no authentication required.

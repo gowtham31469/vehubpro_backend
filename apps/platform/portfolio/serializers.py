@@ -82,6 +82,9 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             "key_features",
             "key_features_detail",
             "listing_price",
+            "original_price",
+            "offer_valid_until",
+            "reasons_to_buy",
             "insurance_policy_no",
             "registration_no",
             "tax_expiration_date",
@@ -116,6 +119,22 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
 
     def get_key_features_detail(self, obj):
         return [{"id": str(f.id), "name": f.name} for f in obj.key_features.all()]
+
+    def validate_reasons_to_buy(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Reasons to buy must be a list.")
+        if len(value) > 6:
+            raise serializers.ValidationError("You can add at most 6 reasons to buy.")
+        cleaned = []
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each reason must have a title and description.")
+            title = str(item.get("title") or "").strip()
+            description = str(item.get("description") or "").strip()
+            if not title:
+                continue
+            cleaned.append({"title": title[:100], "description": description[:200]})
+        return cleaned
 
     def validate_year(self, value):
         current_year = date.today().year
@@ -170,6 +189,13 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
         if brand and vehicle_model and vehicle_model.brand_id != brand.id:
             raise serializers.ValidationError(
                 {"vehicle_model": "Selected model does not belong to the selected brand."}
+            )
+
+        original_price = attrs.get("original_price", getattr(self.instance, "original_price", None))
+        listing_price = attrs.get("listing_price", getattr(self.instance, "listing_price", None))
+        if original_price is not None and listing_price is not None and original_price <= listing_price:
+            raise serializers.ValidationError(
+                {"original_price": "Original price must be greater than the listing price for a discount to apply."}
             )
 
         return attrs
@@ -231,6 +257,8 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
     fuel_type_name = serializers.CharField(source="fuel_type.name", read_only=True)
     photo_urls = serializers.SerializerMethodField()
     key_features_detail = serializers.SerializerMethodField()
+    original_price = serializers.SerializerMethodField()
+    offer_valid_until = serializers.SerializerMethodField()
 
     class Meta:
         model = InventoryVehicle
@@ -247,6 +275,9 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
             "mileage_km",
             "key_features_detail",
             "listing_price",
+            "original_price",
+            "offer_valid_until",
+            "reasons_to_buy",
             "photo_urls",
             "created_at",
         ]
@@ -258,7 +289,20 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
         return [resolve_media_url(k) for k in (obj.photos or [])]
 
     def get_key_features_detail(self, obj):
-        return [f.name for f in obj.key_features.all()]
+        return [{"name": f.name, "category": f.category} for f in obj.key_features.all()]
+
+    def _offer_is_live(self, obj):
+        return (
+            obj.original_price is not None
+            and obj.offer_valid_until is not None
+            and obj.offer_valid_until >= date.today()
+        )
+
+    def get_original_price(self, obj):
+        return obj.original_price if self._offer_is_live(obj) else None
+
+    def get_offer_valid_until(self, obj):
+        return obj.offer_valid_until if self._offer_is_live(obj) else None
 
 
 class PublicVehicleBrandSerializer(serializers.ModelSerializer):
