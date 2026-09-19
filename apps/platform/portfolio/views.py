@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -250,5 +250,46 @@ class InventoryFeatureDetailAPIView(APIView):
             code="INVENTORY_FEATURE_DELETED",
             message="Inventory feature deleted successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class PortfolioDashboardSummaryView(APIView):
+    """
+    Top-level counts/value for the tenant admin Dashboard's Portfolio section.
+    Deliberately separate from apps.platform.dashboard's Service-module views —
+    Dashboard rendering picks which of these to call based on which modules
+    the tenant has enabled, this view itself doesn't need to know that.
+    """
+
+    permission_classes = [IsAuthenticatedPortfolioAccess]
+
+    def get(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        queryset = InventoryVehicle.objects.filter(tenant_id=tenant_id, is_archived=False)
+        by_status = queryset.aggregate(
+            total_listings=Count("id"),
+            available=Count("id", filter=Q(status=InventoryVehicle.STATUS_AVAILABLE)),
+            booked=Count("id", filter=Q(status=InventoryVehicle.STATUS_BOOKED)),
+            sold=Count("id", filter=Q(status=InventoryVehicle.STATUS_SOLD)),
+        )
+        available_inventory_value = queryset.filter(status=InventoryVehicle.STATUS_AVAILABLE).aggregate(
+            value=Sum("listing_price")
+        )["value"] or 0
+
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Portfolio dashboard summary retrieved successfully.",
+            data={
+                "total_listings": by_status["total_listings"],
+                "available": by_status["available"],
+                "booked": by_status["booked"],
+                "sold": by_status["sold"],
+                "available_inventory_value": str(available_inventory_value),
+            },
             status_code=status.HTTP_200_OK,
         )

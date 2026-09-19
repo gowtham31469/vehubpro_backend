@@ -9,13 +9,21 @@ from apps.common.utils.models import BaseModel, SoftArchiveModel
 class InventoryFeature(BaseModel, SoftArchiveModel):
     """Tenant-managed key-feature tag (e.g. Sunroof, Leather Seats) for inventory listings."""
 
+    CATEGORY_SAFETY = "safety"
+    CATEGORY_FEATURE = "feature"
+    CATEGORY_CHOICES = [
+        (CATEGORY_SAFETY, "Safety"),
+        (CATEGORY_FEATURE, "Feature"),
+    ]
+
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="inventory_features")
     name = models.CharField(max_length=100)
+    category = models.CharField(max_length=10, choices=CATEGORY_CHOICES, default=CATEGORY_FEATURE)
     is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         db_table = "inventory_features"
-        ordering = ["name"]
+        ordering = ["category", "name"]
         constraints = [
             models.UniqueConstraint(
                 Lower("name"),

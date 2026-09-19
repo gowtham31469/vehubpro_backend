@@ -26,7 +26,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 
-from apps.platform.invoices.models import Invoice
+from apps.platform.invoices.models import Invoice, InvoiceLineItem
 from apps.platform.invoices.permissions import IsAuthenticatedInvoiceAccess
 from apps.platform.invoices.serializers import (
     CancelInvoiceSerializer,
@@ -281,10 +281,10 @@ class InvoiceReportSummaryAPIView(APIView):
     GET /api/v1/invoices/reports/summary/
 
     Aggregate KPIs (count, total invoiced, total collected, outstanding
-    balance) for the invoice report — computed entirely in the database via
-    Sum()/Count(), so it stays fast no matter how many invoices match.
-    Accepts the same filters as the list endpoint; date_from and date_to
-    are required.
+    balance, and a labour/parts split of the billed amount) for the invoice
+    report — computed entirely in the database via Sum()/Count(), so it
+    stays fast no matter how many invoices match. Accepts the same filters
+    as the list endpoint; date_from and date_to are required.
     """
 
     permission_classes = [IsAuthenticatedInvoiceAccess]
@@ -298,7 +298,7 @@ class InvoiceReportSummaryAPIView(APIView):
         if date_error:
             return date_error
 
-        from django.db.models import Count, F, Sum
+        from django.db.models import Count, F, Q, Sum
 
         queryset, _, _ = _filter_invoices_from_request(
             Invoice.objects.filter(tenant_id=tenant_id), request
@@ -310,6 +310,14 @@ class InvoiceReportSummaryAPIView(APIView):
             total_outstanding=Sum(F("total_amount") - F("amount_paid")),
         )
 
+        # Labour vs. Parts split of the *billed* (pre-tax) amount across the
+        # same filtered invoice set — mirrors DashboardSummaryView's line-item
+        # split, one round trip via conditional Sum.
+        line_item_stats = InvoiceLineItem.objects.filter(invoice__in=queryset).aggregate(
+            labour_amount=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_LABOUR)),
+            part_amount=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_PART)),
+        )
+
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -319,6 +327,8 @@ class InvoiceReportSummaryAPIView(APIView):
                 "total_invoiced": str(aggregates["total_invoiced"] or 0),
                 "total_collected": str(aggregates["total_collected"] or 0),
                 "total_outstanding": str(aggregates["total_outstanding"] or 0),
+                "total_labour": str(line_item_stats["labour_amount"] or 0),
+                "total_parts": str(line_item_stats["part_amount"] or 0),
             },
             status_code=status.HTTP_200_OK,
         )

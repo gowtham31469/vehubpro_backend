@@ -20,7 +20,7 @@ def _inventory_feature_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
 class InventoryFeatureSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryFeature
-        fields = ["id", "tenant", "name", "is_active", "is_archived", "archived_at", "created_at", "updated_at"]
+        fields = ["id", "tenant", "name", "category", "is_active", "is_archived", "archived_at", "created_at", "updated_at"]
         read_only_fields = ["id", "tenant", "is_archived", "archived_at", "created_at", "updated_at"]
 
     def validate_name(self, value):
