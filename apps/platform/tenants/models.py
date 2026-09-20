@@ -45,6 +45,18 @@ class TenantBranding(BaseModel):
     )
     primary_color = models.CharField(max_length=20, null=True, blank=True)
 
+    # Public "landing card" contact channels — shown on the public landing page
+    # (frontend PublicLanding.jsx) at the tenant's bare subdomain root.
+    instagram_handle = models.CharField(
+        max_length=100, blank=True, default="", help_text="Without the @ — e.g. 'chezhiyancars'."
+    )
+    whatsapp_number = models.CharField(
+        max_length=20, blank=True, default="", help_text="Digits with country code, e.g. '919840012345', for a wa.me link."
+    )
+    business_hours = models.CharField(
+        max_length=100, blank=True, default="", help_text="Free-text display line, e.g. 'Mon - Sun · 9AM - 8PM'."
+    )
+
     class Meta:
         db_table = "tenant_branding"
 

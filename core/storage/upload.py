@@ -16,6 +16,7 @@ from django.core.files.uploadedfile import UploadedFile
 from core.storage.exceptions import StorageConfigError
 from core.storage.local_backend import save_upload_local
 from core.storage.s3_backend import upload_to_s3
+from core.storage.thumbnails import generate_thumbnail
 from core.storage.validation import validate_branding_upload, validate_image_upload
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,36 @@ def upload_image_file(
     if backend == "S3":
         content_type = (uploaded_file.content_type or "").split(";")[0].strip() or None
         return upload_to_s3(uploaded_file, relative_key, content_type)
+
+    logger.error("Unsupported STORAGE_TYPE: %s", backend)
+    raise StorageConfigError(f"Unsupported STORAGE_TYPE: {backend}")
+
+
+def upload_thumbnail_only(
+    uploaded_file: UploadedFile,
+    *,
+    folder: str,
+    record_id: str,
+) -> str | None:
+    """
+    Generate and store a single small JPEG preview of ``uploaded_file`` —
+    used for a record's one cover thumbnail (e.g.
+    InventoryVehicle.cover_thumbnail), not a thumbnail per uploaded photo.
+
+    Returns the storage key, or None if Pillow couldn't read the image
+    (caller should fall back to the original photo in that case).
+    """
+    thumb_file = generate_thumbnail(uploaded_file)
+    if thumb_file is None:
+        return None
+
+    thumbnail_key = build_media_image_key(f"{folder}_thumbnails", str(record_id), ".jpg")
+    backend = getattr(settings, "STORAGE_TYPE", "LOCAL").upper()
+
+    if backend == "LOCAL":
+        return save_upload_local(thumb_file, thumbnail_key)
+    if backend == "S3":
+        return upload_to_s3(thumb_file, thumbnail_key, "image/jpeg")
 
     logger.error("Unsupported STORAGE_TYPE: %s", backend)
     raise StorageConfigError(f"Unsupported STORAGE_TYPE: {backend}")

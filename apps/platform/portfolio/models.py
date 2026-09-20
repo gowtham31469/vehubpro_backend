@@ -122,6 +122,14 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
         blank=True,
         help_text="Storage keys (LOCAL path or S3 key) for uploaded listing photos, in display order.",
     )
+    # A single small resized JPEG copy of photos[0] only — not one thumbnail
+    # per photo, to keep storage bounded regardless of how many full-size
+    # photos a listing has. Used wherever many cars render at once (public
+    # listing grid, homepage cards, admin list). Kept in sync with photos[0]
+    # by InventoryVehicleSerializer whenever the first photo changes; falls
+    # back to photos[0] itself at read time when empty (e.g. the first photo
+    # was removed and the new first photo hasn't been re-thumbnailed yet).
+    cover_thumbnail = models.CharField(max_length=500, blank=True, default="")
 
     # Free-text marketing bullets specific to this one listing (e.g. "3 new
     # tyres", "Bangalore's most affordable car") — deliberately NOT reusable
@@ -131,6 +139,10 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
     reasons_to_buy = models.JSONField(default=list, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_AVAILABLE, db_index=True)
+
+    # Manually curated by the tenant — only flagged vehicles appear in the
+    # public homepage's "Featured Cars" section (PublicPortfolio.jsx).
+    is_featured = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = "inventory_vehicles"

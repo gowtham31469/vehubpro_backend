@@ -481,20 +481,16 @@ class PublicTenantBrandingAPIView(APIView):
 
         from apps.platform.modules.models import TenantModule
 
+        # Not gated behind portfolio access — this endpoint backs the public
+        # landing page (PublicLanding.jsx) for every active tenant, portfolio
+        # or not. The Public*.jsx portfolio pages instead check the
+        # has_portfolio_access flag below to decide their own availability.
         has_portfolio_access = TenantModule.objects.filter(
             tenant=tenant,
             module__key="portfolio",
             module__is_active=True,
             module__is_archived=False,
         ).exists()
-        if not has_portfolio_access:
-            return error_response(
-                request,
-                code="PORTFOLIO_MODULE_NOT_ENABLED",
-                message="This dealership does not have the Portfolio module enabled.",
-                error="Portfolio access is not enabled for this tenant.",
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
 
         try:
             branding = tenant.branding
@@ -517,11 +513,15 @@ class PublicTenantBrandingAPIView(APIView):
                     "business_name": tenant.name,
                     "address": (pii.address or None) if pii else None,
                     "phone": phone,
+                    "instagram_handle": "",
+                    "whatsapp_number": "",
+                    "business_hours": "",
+                    "has_portfolio_access": has_portfolio_access,
                 },
                 status_code=status.HTTP_200_OK,
             )
 
-        serializer = PublicTenantBrandingSerializer(branding)
+        serializer = PublicTenantBrandingSerializer(branding, context={"has_portfolio_access": has_portfolio_access})
         return success_response(
             request,
             code="DATA_RETRIEVED",

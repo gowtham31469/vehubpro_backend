@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle
 from apps.platform.vehicles.models import VehicleBrand
-from core.storage import delete_stored_media, resolve_media_url, upload_image_file
+from core.storage import delete_stored_media, resolve_media_url, upload_image_file, upload_thumbnail_only
 from core.storage.exceptions import StorageValidationError
 
 
@@ -61,6 +61,9 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
     )
     # Read-only: resolved {key, url} pairs in display order.
     photo_urls = serializers.SerializerMethodField()
+    # Read-only: URL for the one small preview copy of photos[0] — use this
+    # for grids/listings instead of photo_urls[0].
+    cover_thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = InventoryVehicle
@@ -92,7 +95,9 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             "photo_files",
             "remove_photos",
             "photo_urls",
+            "cover_thumbnail_url",
             "status",
+            "is_featured",
             "is_archived",
             "archived_at",
             "created_at",
@@ -103,6 +108,7 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             "tenant",
             "photos",
             "photo_urls",
+            "cover_thumbnail_url",
             "brand_name",
             "vehicle_model_name",
             "vehicle_type_name",
@@ -116,6 +122,13 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
 
     def get_photo_urls(self, obj):
         return [{"key": key, "url": resolve_media_url(key)} for key in (obj.photos or [])]
+
+    def get_cover_thumbnail_url(self, obj):
+        if obj.cover_thumbnail:
+            return resolve_media_url(obj.cover_thumbnail)
+        if obj.photos:
+            return resolve_media_url(obj.photos[0])
+        return None
 
     def get_key_features_detail(self, obj):
         return [{"id": str(f.id), "name": f.name} for f in obj.key_features.all()]
@@ -209,6 +222,17 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"photo_files": str(exc)}) from exc
         return keys
 
+    def _replace_cover_thumbnail(self, instance, new_first_file) -> None:
+        """
+        Regenerate the single cover thumbnail from the raw bytes of the photo
+        that is now first — always a just-uploaded file, since we thumbnail
+        it in-memory rather than re-downloading an already-stored photo.
+        """
+        if instance.cover_thumbnail:
+            delete_stored_media(instance.cover_thumbnail)
+        thumb_key = upload_thumbnail_only(new_first_file, folder="inventory_vehicles", record_id=str(instance.id))
+        instance.cover_thumbnail = thumb_key or ""
+
     def create(self, validated_data):
         photo_files = validated_data.pop("photo_files", None) or []
         validated_data.pop("remove_photos", None)
@@ -217,12 +241,16 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
 
         if photo_files:
             instance.photos = self._upload_photos(photo_files, instance.id)
-            instance.save(update_fields=["photos", "updated_at"])
+            if instance.photos:
+                self._replace_cover_thumbnail(instance, photo_files[0])
+            instance.save(update_fields=["photos", "cover_thumbnail", "updated_at"])
         return instance
 
     def update(self, instance, validated_data):
         photo_files = validated_data.pop("photo_files", None) or []
         remove_photos = validated_data.pop("remove_photos", None) or []
+
+        old_first = instance.photos[0] if instance.photos else None
 
         instance = super().update(instance, validated_data)
 
@@ -234,10 +262,31 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
                     if k in remove_photos:
                         delete_stored_media(k)
                 photos = keep
+
+            new_uploaded_keys = []
             if photo_files:
-                photos.extend(self._upload_photos(photo_files, instance.id))
+                new_uploaded_keys = self._upload_photos(photo_files, instance.id)
+                photos.extend(new_uploaded_keys)
             instance.photos = photos
-            instance.save(update_fields=["photos", "updated_at"])
+
+            new_first = photos[0] if photos else None
+            if new_first != old_first:
+                if new_first and new_first in new_uploaded_keys:
+                    # We have the raw bytes for this one in-memory — thumbnail
+                    # it directly instead of reading the stored file back.
+                    self._replace_cover_thumbnail(instance, photo_files[new_uploaded_keys.index(new_first)])
+                else:
+                    # The new first photo is an existing one we no longer
+                    # have raw bytes for (e.g. the old first was removed and
+                    # an older photo shifted up) — clear the thumbnail rather
+                    # than pay to re-download and re-process a stored file;
+                    # get_cover_thumbnail_url falls back to the full photo
+                    # until the tenant next uploads.
+                    if instance.cover_thumbnail:
+                        delete_stored_media(instance.cover_thumbnail)
+                    instance.cover_thumbnail = ""
+
+            instance.save(update_fields=["photos", "cover_thumbnail", "updated_at"])
 
         return instance
 
@@ -256,6 +305,7 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
     vehicle_type_name = serializers.CharField(source="vehicle_type.name", read_only=True)
     fuel_type_name = serializers.CharField(source="fuel_type.name", read_only=True)
     photo_urls = serializers.SerializerMethodField()
+    cover_thumbnail_url = serializers.SerializerMethodField()
     key_features_detail = serializers.SerializerMethodField()
     original_price = serializers.SerializerMethodField()
     offer_valid_until = serializers.SerializerMethodField()
@@ -279,6 +329,8 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
             "offer_valid_until",
             "reasons_to_buy",
             "photo_urls",
+            "cover_thumbnail_url",
+            "is_featured",
             "created_at",
         ]
 
@@ -287,6 +339,13 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
 
     def get_photo_urls(self, obj):
         return [resolve_media_url(k) for k in (obj.photos or [])]
+
+    def get_cover_thumbnail_url(self, obj):
+        if obj.cover_thumbnail:
+            return resolve_media_url(obj.cover_thumbnail)
+        if obj.photos:
+            return resolve_media_url(obj.photos[0])
+        return None
 
     def get_key_features_detail(self, obj):
         return [{"name": f.name, "category": f.category} for f in obj.key_features.all()]

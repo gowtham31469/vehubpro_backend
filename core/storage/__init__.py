@@ -17,6 +17,7 @@ from core.storage.upload import (
     upload_branding_asset,
     upload_image_file,
     upload_media_file,
+    upload_thumbnail_only,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "StorageUploadError",
     "upload_branding_asset",
     "upload_image_file",
+    "upload_thumbnail_only",
     "upload_media_file",
     "build_tenant_branding_key",
     "build_media_image_key",

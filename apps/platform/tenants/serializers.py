@@ -87,6 +87,9 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
             "dark_logo_file",
             "favicon_file",
             "primary_color",
+            "instagram_handle",
+            "whatsapp_number",
+            "business_hours",
             "business_name",
             "created_at",
             "updated_at",
@@ -398,10 +401,21 @@ class PublicTenantBrandingSerializer(serializers.ModelSerializer):
     business_name = serializers.CharField(source="tenant.name", read_only=True)
     address = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
+    has_portfolio_access = serializers.SerializerMethodField()
 
     class Meta:
         model = TenantBranding
-        fields = ["logo_url", "primary_color", "business_name", "address", "phone"]
+        fields = [
+            "logo_url",
+            "primary_color",
+            "business_name",
+            "address",
+            "phone",
+            "instagram_handle",
+            "whatsapp_number",
+            "business_hours",
+            "has_portfolio_access",
+        ]
 
     def get_logo_url(self, obj):
         return _resolve_branding_url(obj.logo)
@@ -418,3 +432,6 @@ class PublicTenantBrandingSerializer(serializers.ModelSerializer):
             return pii.get_phone() or None
         except Exception:
             return None
+
+    def get_has_portfolio_access(self, obj):
+        return bool(self.context.get("has_portfolio_access"))
