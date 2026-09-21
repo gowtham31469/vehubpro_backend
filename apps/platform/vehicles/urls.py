@@ -1,6 +1,8 @@
 from django.urls import path
 
 from apps.platform.vehicles.views import (
+    BodyTypeDetailAPIView,
+    BodyTypeListCreateAPIView,
     FuelTypeDetailAPIView,
     FuelTypeListCreateAPIView,
     ServiceVehicleDetailAPIView,
@@ -16,6 +18,8 @@ from apps.platform.vehicles.views import (
 urlpatterns = [
     path("types/", VehicleTypeListCreateAPIView.as_view(), name="vehicle-type-list-create"),
     path("types/<uuid:pk>/", VehicleTypeDetailAPIView.as_view(), name="vehicle-type-detail"),
+    path("body-types/", BodyTypeListCreateAPIView.as_view(), name="body-type-list-create"),
+    path("body-types/<uuid:pk>/", BodyTypeDetailAPIView.as_view(), name="body-type-detail"),
     path("fuel-types/", FuelTypeListCreateAPIView.as_view(), name="fuel-type-list-create"),
     path("fuel-types/<uuid:pk>/", FuelTypeDetailAPIView.as_view(), name="fuel-type-detail"),
     path("brands/", VehicleBrandListCreateAPIView.as_view(), name="vehicle-brand-list-create"),

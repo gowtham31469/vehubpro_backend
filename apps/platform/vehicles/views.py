@@ -1,13 +1,14 @@
-from django.db.models import Q
+from django.db.models import ProtectedError, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
-from apps.platform.vehicles.models import FuelType, ServiceVehicle, VehicleBrand, VehicleModel, VehicleType
+from apps.platform.vehicles.models import BodyType, FuelType, ServiceVehicle, VehicleBrand, VehicleModel, VehicleType
 from apps.platform.vehicles.permissions import IsAuthenticatedVehicleAccess
 from apps.platform.vehicles.serializers import (
+    BodyTypeSerializer,
     FuelTypeSerializer,
     ServiceVehicleSerializer,
     VehicleBrandSerializer,
@@ -117,6 +118,94 @@ class VehicleTypeDetailAPIView(APIView):
             request,
             code="VEHICLE_TYPE_DELETED",
             message="Vehicle type deleted successfully.",
+            data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class BodyTypeListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticatedVehicleAccess]
+
+    def get(self, request):
+        queryset = BodyType.objects.all().order_by("name")
+        serializer = BodyTypeSerializer(queryset, many=True)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Body types retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = BodyTypeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="BODY_TYPE_CREATED",
+            message="Body type created successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class BodyTypeDetailAPIView(APIView):
+    permission_classes = [IsAuthenticatedVehicleAccess]
+
+    def get_object(self, pk):
+        return get_object_or_404(BodyType, pk=pk)
+
+    def get(self, request, pk):
+        serializer = BodyTypeSerializer(self.get_object(pk))
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Body type retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def put(self, request, pk):
+        serializer = BodyTypeSerializer(self.get_object(pk), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="BODY_TYPE_UPDATED",
+            message="Body type updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, pk):
+        serializer = BodyTypeSerializer(self.get_object(pk), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            request,
+            code="BODY_TYPE_UPDATED",
+            message="Body type updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk):
+        body_type = self.get_object(pk)
+        try:
+            body_type.delete()
+        except ProtectedError:
+            return error_response(
+                request,
+                code="BODY_TYPE_IN_USE",
+                message="This body type is used by one or more inventory vehicles and can't be deleted. Deactivate it instead.",
+                error="Body type is referenced by existing inventory vehicles.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            code="BODY_TYPE_DELETED",
+            message="Body type deleted successfully.",
             data={},
             status_code=status.HTTP_200_OK,
         )

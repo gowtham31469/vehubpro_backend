@@ -88,7 +88,11 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
 
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="inventory_vehicles")
 
-    vehicle_type = models.ForeignKey("vehicles.VehicleType", on_delete=models.PROTECT, related_name="inventory_vehicles")
+    # Body shape (Hatchback/Sedan/SUV/...) — a separate master table from the
+    # generic VehicleType used by ServiceVehicle/VehicleModel (car/bus/van).
+    # Field name kept as `vehicle_type` for API/frontend compatibility even
+    # though the target model is now BodyType (see vehicles.models.BodyType).
+    vehicle_type = models.ForeignKey("vehicles.BodyType", on_delete=models.PROTECT, related_name="inventory_vehicles")
     brand = models.ForeignKey("vehicles.VehicleBrand", on_delete=models.PROTECT, related_name="inventory_vehicles")
     vehicle_model = models.ForeignKey("vehicles.VehicleModel", on_delete=models.PROTECT, related_name="inventory_vehicles")
     year = models.SmallIntegerField()

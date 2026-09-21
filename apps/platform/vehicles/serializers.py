@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from rest_framework import serializers
 
 from apps.platform.customers.models import Customer
-from apps.platform.vehicles.models import FuelType, ServiceVehicle, VehicleBrand, VehicleModel, VehicleType
+from apps.platform.vehicles.models import BodyType, FuelType, ServiceVehicle, VehicleBrand, VehicleModel, VehicleType
 from core.storage import delete_stored_media, resolve_media_url, upload_image_file
 from core.storage.exceptions import StorageValidationError
 
@@ -40,6 +40,25 @@ class VehicleTypeSerializer(serializers.ModelSerializer):
         name = (value or "").strip()
         if not name:
             raise serializers.ValidationError("Vehicle type name is required.")
+        return name
+
+
+class BodyTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BodyType
+        fields = ["id", "code", "name", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_code(self, value):
+        code = (value or "").strip().lower()
+        if not code:
+            raise serializers.ValidationError("Body type code is required.")
+        return code
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Body type name is required.")
         return name
 
 

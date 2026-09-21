@@ -18,6 +18,28 @@ class VehicleType(BaseModel):
         return self.name
 
 
+class BodyType(BaseModel):
+    """
+    Car body shape (Hatchback, Sedan, SUV, ...) — used only by
+    InventoryVehicle.vehicle_type (Portfolio module). Deliberately a separate
+    table from VehicleType: VehicleType holds generic vehicle categories
+    (car, bus, van) used by ServiceVehicle/VehicleModel, and the two were
+    previously mixed in one table with a frontend-only filter telling them
+    apart (see apps/platform/portfolio/migrations for the historical seed).
+    """
+
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "body_types"
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class FuelType(BaseModel):
     code = models.CharField(max_length=50, unique=True, db_index=True)
     name = models.CharField(max_length=100, unique=True)
