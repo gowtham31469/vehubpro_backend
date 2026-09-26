@@ -31,6 +31,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
             "icon_code",
             "sort_order",
             "is_active",
+            "is_featured",
             "is_archived",
             "archived_at",
             "created_at",
@@ -73,6 +74,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "image",
             "image_url",
             "is_active",
+            "is_featured",
             "is_archived",
             "archived_at",
             "created_at",
@@ -114,3 +116,42 @@ class ServiceItemSerializer(serializers.ModelSerializer):
         if value is not None and value < 0:
             raise serializers.ValidationError("GST percentage cannot be negative.")
         return value
+
+
+class PublicServiceCategorySerializer(serializers.ModelSerializer):
+    """Read-only, no-auth serializer for the public Services homepage/catalog."""
+
+    class Meta:
+        model = ServiceCategory
+        fields = ["id", "name", "icon_code", "sort_order", "is_featured"]
+
+
+class PublicServiceItemSerializer(serializers.ModelSerializer):
+    """Read-only, no-auth serializer for the public Services homepage."""
+
+    category_name = serializers.CharField(source="category.name", read_only=True, default=None)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceItem
+        fields = [
+            "id",
+            "category",
+            "category_name",
+            "name",
+            "description",
+            "base_price",
+            "service_type",
+            "unit_type",
+            "image_url",
+            "is_featured",
+        ]
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        try:
+            from core.storage.resolve import resolve_media_url
+            return resolve_media_url(obj.image)
+        except Exception:
+            return None

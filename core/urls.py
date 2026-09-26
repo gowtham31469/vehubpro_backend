@@ -29,6 +29,7 @@ urlpatterns += [
     path("api/v1/auth/", include("core.auth.urls")),
     path("api/v1/public/", include("apps.platform.tenants.public_urls")),
     path("api/v1/public/portfolio/", include("apps.platform.portfolio.public_urls")),
+    path("api/v1/public/services/", include("apps.platform.services.public_urls")),
     path("api/v1/billing/", include("apps.platform.billing.urls")),
     path("api/v1/tenants/", include("apps.platform.tenants.urls")),
     path("api/v1/users/", include("apps.platform.users.urls")),

@@ -402,6 +402,7 @@ class PublicTenantBrandingSerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
     has_portfolio_access = serializers.SerializerMethodField()
+    has_services_access = serializers.SerializerMethodField()
 
     class Meta:
         model = TenantBranding
@@ -415,6 +416,7 @@ class PublicTenantBrandingSerializer(serializers.ModelSerializer):
             "whatsapp_number",
             "business_hours",
             "has_portfolio_access",
+            "has_services_access",
         ]
 
     def get_logo_url(self, obj):
@@ -435,3 +437,6 @@ class PublicTenantBrandingSerializer(serializers.ModelSerializer):
 
     def get_has_portfolio_access(self, obj):
         return bool(self.context.get("has_portfolio_access"))
+
+    def get_has_services_access(self, obj):
+        return bool(self.context.get("has_services_access"))

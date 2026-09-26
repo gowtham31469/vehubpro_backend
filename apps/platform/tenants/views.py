@@ -481,13 +481,20 @@ class PublicTenantBrandingAPIView(APIView):
 
         from apps.platform.modules.models import TenantModule
 
-        # Not gated behind portfolio access — this endpoint backs the public
-        # landing page (PublicLanding.jsx) for every active tenant, portfolio
-        # or not. The Public*.jsx portfolio pages instead check the
-        # has_portfolio_access flag below to decide their own availability.
+        # Not gated behind either module — this endpoint backs the public
+        # homepage routing decision at "/" for every active tenant, so it
+        # always returns branding plus both access flags; PublicHome.jsx picks
+        # which homepage variant to render, and the Public*.jsx pages each
+        # check their own flag to decide their own availability.
         has_portfolio_access = TenantModule.objects.filter(
             tenant=tenant,
             module__key="portfolio",
+            module__is_active=True,
+            module__is_archived=False,
+        ).exists()
+        has_services_access = TenantModule.objects.filter(
+            tenant=tenant,
+            module__key="services",
             module__is_active=True,
             module__is_archived=False,
         ).exists()
@@ -517,11 +524,14 @@ class PublicTenantBrandingAPIView(APIView):
                     "whatsapp_number": "",
                     "business_hours": "",
                     "has_portfolio_access": has_portfolio_access,
+                    "has_services_access": has_services_access,
                 },
                 status_code=status.HTTP_200_OK,
             )
 
-        serializer = PublicTenantBrandingSerializer(branding, context={"has_portfolio_access": has_portfolio_access})
+        serializer = PublicTenantBrandingSerializer(
+            branding, context={"has_portfolio_access": has_portfolio_access, "has_services_access": has_services_access}
+        )
         return success_response(
             request,
             code="DATA_RETRIEVED",

@@ -22,6 +22,11 @@ class ServiceCategory(BaseModel, SoftArchiveModel):
     icon_code = models.CharField(max_length=50, null=True, blank=True)
     sort_order = models.SmallIntegerField(default=0)
     is_active = models.BooleanField(default=True, db_index=True)
+    # Manually curated by the tenant — only flagged categories appear as
+    # chips in the public homepage's "Browse by Category" section (mirrors
+    # ServiceItem.is_featured). The full catalog page shows every category
+    # regardless of this flag.
+    is_featured = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = "service_categories"
@@ -103,6 +108,9 @@ class ServiceItem(BaseModel, SoftArchiveModel):
         help_text="Relative storage key (LOCAL path or S3 key) for the service item icon/image.",
     )
     is_active = models.BooleanField(default=True, db_index=True)
+    # Manually curated by the tenant — only flagged items appear in the public
+    # homepage's "Popular Services" section (mirrors InventoryVehicle.is_featured).
+    is_featured = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = "service_items"
