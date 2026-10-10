@@ -152,7 +152,7 @@
       "is_archived": false,
       "archived_at": null,
       "module": "d0000000-0000-0000-0000-000000000003",
-      "key": "reports",
+      "key": "service_reports",
       "name": "Reports",
       "description": "Reports",
       "is_active": true,

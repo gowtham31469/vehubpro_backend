@@ -17,7 +17,13 @@ NEW_SUBMODULES = [
         ("f0000000-0000-0000-0000-000000000053", "approve"),
         ("f0000000-0000-0000-0000-000000000054", "download"),
     ]),
-    ("e0000000-0000-0000-0000-000000000013", "reports", "Reports", [
+    # key is "service_reports", not "reports" — matches what's actually been
+    # live in production since before this migration existed (the fixture
+    # used to seed it that way); changing it here would make this
+    # get_or_create() try to insert a second row under the real production
+    # ID and collide on the primary key instead of recognizing it as already
+    # present. The frontend already maps both spellings to /admin/reports.
+    ("e0000000-0000-0000-0000-000000000013", "service_reports", "Reports", [
         ("f0000000-0000-0000-0000-000000000055", "view"),
         ("f0000000-0000-0000-0000-000000000056", "download"),
     ]),
