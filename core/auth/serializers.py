@@ -18,7 +18,7 @@ class LoginSerializer(serializers.Serializer):
         email_hash = encryptor.hash_value(email)
         pii = (
             UserPII.objects.select_related("user")
-            .filter(email_hash=email_hash, is_anonymized=False)
+            .filter(email_hash=email_hash, is_anonymized=False, is_customer_identity=False)
             .first()
         )
         if not pii or not pii.user:

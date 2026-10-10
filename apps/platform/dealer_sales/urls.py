@@ -1,0 +1,71 @@
+from django.urls import path
+
+from apps.platform.dealer_sales.views import (
+    VehicleAcquisitionDetailAPIView,
+    VehicleBookingCancelAPIView,
+    VehicleBookingListCreateAPIView,
+    VehicleDeliveryDetailAPIView,
+    VehicleDocumentDetailAPIView,
+    VehicleDocumentListCreateAPIView,
+    VehicleNegotiationListCreateAPIView,
+    VehicleOwnershipRecordListCreateAPIView,
+    VehiclePriceHistoryListAPIView,
+    VehicleProfitabilityAPIView,
+    VehicleReservationCancelAPIView,
+    VehicleReservationListCreateAPIView,
+    VehicleSaleCancelAPIView,
+    VehicleSaleInvoiceDetailAPIView,
+    VehicleSaleInvoicePdfAPIView,
+    VehicleSaleInvoicePreviewHtmlAPIView,
+    VehicleSaleInvoiceRecordPaymentAPIView,
+    VehicleSaleListCreateAPIView,
+    VehicleSaleQuotationAcceptAPIView,
+    VehicleSaleQuotationCancelAPIView,
+    VehicleSaleQuotationDetailAPIView,
+    VehicleSaleQuotationListCreateAPIView,
+    VehicleSaleQuotationRejectAPIView,
+    VehicleSaleQuotationSendAPIView,
+    VehicleSettlementDetailAPIView,
+    VehicleSettlementMarkPaidAPIView,
+    VehicleTimelineListAPIView,
+    VehicleWorkExpenseDetailAPIView,
+    VehicleWorkExpenseListCreateAPIView,
+)
+
+urlpatterns = [
+    path("vehicles/<uuid:vehicle_id>/acquisition/", VehicleAcquisitionDetailAPIView.as_view(), name="vehicle-acquisition-detail"),
+    path("vehicles/<uuid:vehicle_id>/ownership-history/", VehicleOwnershipRecordListCreateAPIView.as_view(), name="vehicle-ownership-history"),
+    path("vehicles/<uuid:vehicle_id>/work-expenses/", VehicleWorkExpenseListCreateAPIView.as_view(), name="vehicle-work-expense-list-create"),
+    path("vehicles/<uuid:vehicle_id>/work-expenses/<uuid:pk>/", VehicleWorkExpenseDetailAPIView.as_view(), name="vehicle-work-expense-detail"),
+    path("vehicles/<uuid:vehicle_id>/pricing-history/", VehiclePriceHistoryListAPIView.as_view(), name="vehicle-pricing-history"),
+    path("vehicles/<uuid:vehicle_id>/documents/", VehicleDocumentListCreateAPIView.as_view(), name="vehicle-document-list-create"),
+    path("vehicles/<uuid:vehicle_id>/documents/<uuid:pk>/", VehicleDocumentDetailAPIView.as_view(), name="vehicle-document-detail"),
+    path("vehicles/<uuid:vehicle_id>/timeline/", VehicleTimelineListAPIView.as_view(), name="vehicle-timeline"),
+    path("vehicles/<uuid:vehicle_id>/profitability/", VehicleProfitabilityAPIView.as_view(), name="vehicle-profitability"),
+
+    # Phase 2 — Quotation -> Negotiation -> Reservation -> Booking -> Sale -> Delivery -> Settlement
+    path("vehicles/<uuid:vehicle_id>/quotations/", VehicleSaleQuotationListCreateAPIView.as_view(), name="vehicle-quotation-list-create"),
+    path("quotations/<uuid:pk>/", VehicleSaleQuotationDetailAPIView.as_view(), name="quotation-detail"),
+    path("quotations/<uuid:pk>/send/", VehicleSaleQuotationSendAPIView.as_view(), name="quotation-send"),
+    path("quotations/<uuid:pk>/negotiations/", VehicleNegotiationListCreateAPIView.as_view(), name="quotation-negotiation-list-create"),
+    path("quotations/<uuid:pk>/accept/", VehicleSaleQuotationAcceptAPIView.as_view(), name="quotation-accept"),
+    path("quotations/<uuid:pk>/reject/", VehicleSaleQuotationRejectAPIView.as_view(), name="quotation-reject"),
+    path("quotations/<uuid:pk>/cancel/", VehicleSaleQuotationCancelAPIView.as_view(), name="quotation-cancel"),
+
+    path("vehicles/<uuid:vehicle_id>/reservations/", VehicleReservationListCreateAPIView.as_view(), name="vehicle-reservation-list-create"),
+    path("reservations/<uuid:pk>/cancel/", VehicleReservationCancelAPIView.as_view(), name="reservation-cancel"),
+
+    path("vehicles/<uuid:vehicle_id>/bookings/", VehicleBookingListCreateAPIView.as_view(), name="vehicle-booking-list-create"),
+    path("bookings/<uuid:pk>/cancel/", VehicleBookingCancelAPIView.as_view(), name="booking-cancel"),
+
+    path("vehicles/<uuid:vehicle_id>/sales/", VehicleSaleListCreateAPIView.as_view(), name="vehicle-sale-list-create"),
+    path("sales/<uuid:pk>/cancel/", VehicleSaleCancelAPIView.as_view(), name="sale-cancel"),
+    path("sales/<uuid:pk>/delivery/", VehicleDeliveryDetailAPIView.as_view(), name="sale-delivery"),
+    path("sales/<uuid:pk>/settlement/", VehicleSettlementDetailAPIView.as_view(), name="sale-settlement"),
+    path("sales/<uuid:pk>/settlement/mark-paid/", VehicleSettlementMarkPaidAPIView.as_view(), name="sale-settlement-mark-paid"),
+    path("sales/<uuid:pk>/invoice/", VehicleSaleInvoiceDetailAPIView.as_view(), name="sale-invoice"),
+
+    path("invoices/<uuid:pk>/record-payment/", VehicleSaleInvoiceRecordPaymentAPIView.as_view(), name="invoice-record-payment"),
+    path("invoices/<uuid:pk>/preview-html/", VehicleSaleInvoicePreviewHtmlAPIView.as_view(), name="invoice-preview-html"),
+    path("invoices/<uuid:pk>/generate-pdf/", VehicleSaleInvoicePdfAPIView.as_view(), name="invoice-generate-pdf"),
+]

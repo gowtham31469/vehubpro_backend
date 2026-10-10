@@ -20,7 +20,19 @@ def _item_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
     return {"non_field_errors": ["This service item conflicts with an existing record for your tenant."]}
 
 
+def _resolve_image_url(obj):
+    if not obj.image:
+        return None
+    try:
+        from core.storage.resolve import resolve_media_url
+        return resolve_media_url(obj.image)
+    except Exception:
+        return None
+
+
 class ServiceCategorySerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ServiceCategory
         fields = [
@@ -29,6 +41,8 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
             "name",
             "applicable_vehicle_types",
             "icon_code",
+            "image",
+            "image_url",
             "sort_order",
             "is_active",
             "is_featured",
@@ -37,7 +51,12 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "tenant", "is_archived", "archived_at", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "tenant", "image", "image_url", "is_archived", "archived_at", "created_at", "updated_at",
+        ]
+
+    def get_image_url(self, obj):
+        return _resolve_image_url(obj)
 
     def validate_name(self, value):
         name = (value or "").strip()
@@ -121,9 +140,14 @@ class ServiceItemSerializer(serializers.ModelSerializer):
 class PublicServiceCategorySerializer(serializers.ModelSerializer):
     """Read-only, no-auth serializer for the public Services homepage/catalog."""
 
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ServiceCategory
-        fields = ["id", "name", "icon_code", "sort_order", "is_featured"]
+        fields = ["id", "name", "icon_code", "image_url", "sort_order", "is_featured"]
+
+    def get_image_url(self, obj):
+        return _resolve_image_url(obj)
 
 
 class PublicServiceItemSerializer(serializers.ModelSerializer):

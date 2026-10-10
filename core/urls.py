@@ -30,6 +30,8 @@ urlpatterns += [
     path("api/v1/public/", include("apps.platform.tenants.public_urls")),
     path("api/v1/public/portfolio/", include("apps.platform.portfolio.public_urls")),
     path("api/v1/public/services/", include("apps.platform.services.public_urls")),
+    path("api/v1/public/portal/", include("apps.portal.urls")),
+    path("api/v1/portal/", include("apps.portal.authenticated_urls")),
     path("api/v1/billing/", include("apps.platform.billing.urls")),
     path("api/v1/tenants/", include("apps.platform.tenants.urls")),
     path("api/v1/users/", include("apps.platform.users.urls")),
@@ -41,8 +43,10 @@ urlpatterns += [
     path("api/v1/invoices/", include("apps.platform.invoices.urls")),
     path("api/v1/quotations/", include("apps.platform.quotations.urls")),
     path("api/v1/portfolio/", include("apps.platform.portfolio.urls")),
+    path("api/v1/dealer-sales/", include("apps.platform.dealer_sales.urls")),
     path("api/v1/dashboard/", include("apps.platform.dashboard.urls")),
     path("api/v1/modules/", include("apps.platform.modules.urls")),
+    path("api/v1/notifications/", include("apps.platform.notifications.urls")),
     # Superadmin SPA static assets (Vite build output)
     re_path(r"^assets/(?P<path>.*)$", serve, {"document_root": settings.SUPERADMIN_DIST / "assets"}),
     # Catch-all: serve superadmin index.html for all non-API, non-admin, non-media routes

@@ -49,7 +49,13 @@ class PublicInventoryVehiclesAPIView(APIView):
     Public endpoint — no authentication required.
 
     Accepts the subdomain portion of the tenant's domain (e.g. "chezhiyancars")
-    and returns the tenant's AVAILABLE inventory listings for a public showroom page.
+    and returns the tenant's AVAILABLE and BOOKED inventory listings for a
+    public showroom page. Booked vehicles stay visible (with a "Booked"
+    badge, via PublicInventoryVehicleSerializer.status) rather than
+    disappearing the moment a deposit is taken — a customer who was shown
+    the listing, or found it from a shared link, shouldn't see it vanish
+    mid-conversation. Sold and Delivered are excluded: once money has
+    actually changed hands there's no reason to keep showing it.
     """
 
     authentication_classes = []
@@ -64,7 +70,7 @@ class PublicInventoryVehiclesAPIView(APIView):
             "brand", "vehicle_model", "vehicle_type", "fuel_type"
         ).prefetch_related("key_features").filter(
             tenant=tenant,
-            status=InventoryVehicle.STATUS_AVAILABLE,
+            status__in=[InventoryVehicle.STATUS_AVAILABLE, InventoryVehicle.STATUS_BOOKED],
             is_archived=False,
         ).order_by("-created_at")
 
@@ -91,9 +97,9 @@ class PublicInventoryVehicleDetailAPIView(APIView):
     Public endpoint — no authentication required.
 
     Single-vehicle detail for the public showroom's "View Details" page.
-    Scoped the same way as the list endpoint (available + not archived) so a
-    listing that's since sold/booked simply 404s here too, rather than
-    leaving a stale "available" detail page reachable by direct link.
+    Scoped the same way as the list endpoint (available or booked, not
+    archived) so a listing that's since sold/delivered simply 404s here too,
+    rather than leaving a stale detail page reachable by direct link.
     """
 
     authentication_classes = []
@@ -109,7 +115,7 @@ class PublicInventoryVehicleDetailAPIView(APIView):
         ).prefetch_related("key_features").filter(
             tenant=tenant,
             pk=pk,
-            status=InventoryVehicle.STATUS_AVAILABLE,
+            status__in=[InventoryVehicle.STATUS_AVAILABLE, InventoryVehicle.STATUS_BOOKED],
             is_archived=False,
         ).first()
 

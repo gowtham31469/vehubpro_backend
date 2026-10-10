@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models import Q
@@ -52,11 +53,21 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
     STATUS_AVAILABLE = "available"
     STATUS_BOOKED = "booked"
     STATUS_SOLD = "sold"
+    STATUS_DELIVERED = "delivered"
 
     STATUS_CHOICES = [
         (STATUS_AVAILABLE, "Available"),
         (STATUS_BOOKED, "Booked"),
         (STATUS_SOLD, "Sold"),
+        (STATUS_DELIVERED, "Delivered"),
+    ]
+
+    INVENTORY_TYPE_OWNED = "owned"
+    INVENTORY_TYPE_CUSTOMER_CONSIGNMENT = "customer_consignment"
+
+    INVENTORY_TYPE_CHOICES = [
+        (INVENTORY_TYPE_OWNED, "Owned"),
+        (INVENTORY_TYPE_CUSTOMER_CONSIGNMENT, "Customer Consignment"),
     ]
 
     TRANSMISSION_AUTOMATIC = "automatic"
@@ -144,6 +155,15 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_AVAILABLE, db_index=True)
 
+    # Owned stock the dealer purchased vs. a customer's vehicle being sold on
+    # their behalf (consignment) — see apps.platform.dealer_sales for
+    # acquisition/work-expense/pricing tracking keyed off this split. Default
+    # "owned" is correct for every pre-existing row — no other concept
+    # existed before this field was added.
+    inventory_type = models.CharField(
+        max_length=25, choices=INVENTORY_TYPE_CHOICES, default=INVENTORY_TYPE_OWNED, db_index=True
+    )
+
     # Manually curated by the tenant — only flagged vehicles appear in the
     # public homepage's "Featured Cars" section (PublicPortfolio.jsx).
     is_featured = models.BooleanField(default=False, db_index=True)
@@ -158,3 +178,78 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
 
     def __str__(self) -> str:
         return f"{self.brand.name} {self.vehicle_model.name} ({self.year})"
+
+
+class VisitRequest(BaseModel, SoftArchiveModel):
+    """A customer's request to visit the showroom for a specific InventoryVehicle."""
+
+    STATUS_PENDING = "pending"
+    STATUS_CONTACTED = "contacted"
+    STATUS_COMPLETED = "completed"
+    STATUS_CANCELLED = "cancelled"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_CONTACTED, "Contacted"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
+
+    tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="visit_requests")
+    vehicle = models.ForeignKey(InventoryVehicle, on_delete=models.CASCADE, related_name="visit_requests")
+    customer_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="visit_requests"
+    )
+
+    # Snapshotted plain text at booking time (like Customer's plain-text
+    # contact fields, not UserPII's encrypted ones) so the staff list doesn't
+    # need decryption to display who to call.
+    full_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField(null=True, blank=True)
+
+    preferred_date = models.DateField(null=True, blank=True)
+    preferred_time = models.TimeField(null=True, blank=True)
+    message = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    staff_notes = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "portfolio_visit_requests"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer_user", "vehicle"], name="uniq_visit_request_customer_vehicle"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Visit request — {self.full_name} — {self.vehicle_id}"
+
+
+class VisitRequestStatusEvent(BaseModel):
+    """One row per status transition on a VisitRequest — the timeline shown in
+    the staff admin's Manage modal. The first event (from_status=None) is the
+    customer's original booking; changed_by=None means it wasn't a staff action."""
+
+    visit_request = models.ForeignKey(VisitRequest, on_delete=models.CASCADE, related_name="status_events")
+    from_status = models.CharField(max_length=20, null=True, blank=True)
+    to_status = models.CharField(max_length=20)
+    note = models.TextField(null=True, blank=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visit_request_status_changes",
+    )
+
+    class Meta:
+        db_table = "portfolio_visit_request_status_events"
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.visit_request_id}: {self.from_status} -> {self.to_status}"

@@ -4,7 +4,7 @@ from typing import Any
 from django.db import IntegrityError
 from rest_framework import serializers
 
-from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle
+from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle, VisitRequest, VisitRequestStatusEvent
 from apps.platform.vehicles.models import VehicleBrand
 from core.storage import delete_stored_media, resolve_media_url, upload_image_file, upload_thumbnail_only
 from core.storage.exceptions import StorageValidationError
@@ -97,6 +97,7 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             "photo_urls",
             "cover_thumbnail_url",
             "status",
+            "inventory_type",
             "is_featured",
             "is_archived",
             "archived_at",
@@ -251,8 +252,28 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
         remove_photos = validated_data.pop("remove_photos", None) or []
 
         old_first = instance.photos[0] if instance.photos else None
+        price_changes = []
+        for field, price_type in (("listing_price", "listing_price"), ("original_price", "asking_price")):
+            if field in validated_data:
+                new_value = validated_data[field]
+                old_value = getattr(instance, field)
+                if new_value != old_value:
+                    price_changes.append((price_type, old_value, new_value))
 
         instance = super().update(instance, validated_data)
+
+        if price_changes:
+            # Local import avoids a module-load-time cycle — dealer_sales
+            # imports apps.platform.portfolio.models, so portfolio can only
+            # reach back into dealer_sales lazily, not at import time.
+            from apps.platform.dealer_sales.services import record_price_change
+
+            request = self.context.get("request")
+            user = getattr(request, "user", None) if request else None
+            for price_type, old_value, new_value in price_changes:
+                record_price_change(
+                    vehicle=instance, price_type=price_type, old_value=old_value, new_value=new_value, user=user,
+                )
 
         if remove_photos or photo_files:
             photos = list(instance.photos or [])
@@ -295,8 +316,12 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
     """
     Read-only, no-auth serializer for the public showroom page.
 
-    Deliberately excludes registration_no, insurance_policy_no, tax_expiration_date,
-    and status — statutory/internal details with no reason to be public.
+    Deliberately excludes registration_no, insurance_policy_no, and
+    tax_expiration_date — statutory/internal details with no reason to be
+    public. `status` IS included (only ever "available" or "booked" here —
+    the public views only ever return those two) so the storefront can show
+    a "Booked" badge instead of silently hiding a vehicle a customer might
+    already be discussing with staff.
     """
 
     brand_name = serializers.CharField(source="brand.name", read_only=True)
@@ -314,6 +339,7 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
         model = InventoryVehicle
         fields = [
             "id",
+            "status",
             "brand_name",
             "brand_logo_url",
             "vehicle_model_name",
@@ -375,3 +401,50 @@ class PublicVehicleBrandSerializer(serializers.ModelSerializer):
 
     def get_logo_url(self, obj):
         return resolve_media_url(obj.logo)
+
+
+class VisitRequestSerializer(serializers.ModelSerializer):
+    """Staff-facing — read plus status/notes updates. Vehicle/customer fields are read-only."""
+
+    vehicle_brand_name = serializers.CharField(source="vehicle.brand.name", read_only=True)
+    vehicle_model_name = serializers.CharField(source="vehicle.vehicle_model.name", read_only=True)
+    vehicle_year = serializers.IntegerField(source="vehicle.year", read_only=True)
+
+    class Meta:
+        model = VisitRequest
+        fields = [
+            "id",
+            "vehicle",
+            "vehicle_brand_name",
+            "vehicle_model_name",
+            "vehicle_year",
+            "full_name",
+            "phone",
+            "email",
+            "preferred_date",
+            "preferred_time",
+            "message",
+            "status",
+            "staff_notes",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id", "vehicle", "vehicle_brand_name", "vehicle_model_name", "vehicle_year",
+            "full_name", "phone", "email", "preferred_date", "preferred_time", "message", "created_at",
+        ]
+
+
+class VisitRequestStatusEventSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VisitRequestStatusEvent
+        fields = ["id", "from_status", "to_status", "note", "changed_by_name", "created_at"]
+
+    def get_changed_by_name(self, obj):
+        if obj.changed_by is None:
+            return "Customer"
+        try:
+            return obj.changed_by.pii.get_full_name() or "Staff"
+        except Exception:
+            return "Staff"

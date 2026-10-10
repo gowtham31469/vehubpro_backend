@@ -164,7 +164,8 @@ class DashboardSummaryView(APIView):
         )
 
         # ── Query 3: Invoice aggregates ────────────────────────────────────────
-        inv_base = Invoice.objects.filter(tenant_id=tenant_id)
+        # Cancelled invoices stay on record but must never count toward revenue.
+        inv_base = Invoice.objects.filter(tenant_id=tenant_id, is_cancelled=False)
 
         revenue_this_month = (
             inv_base
@@ -176,7 +177,11 @@ class DashboardSummaryView(APIView):
         # one round trip via conditional Sum, mirroring TopServicesView.
         line_item_stats = (
             InvoiceLineItem.objects
-            .filter(invoice__tenant_id=tenant_id, invoice__created_at__gte=month_start)
+            .filter(
+                invoice__tenant_id=tenant_id,
+                invoice__is_cancelled=False,
+                invoice__created_at__gte=month_start,
+            )
             .aggregate(
                 labour_revenue=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_LABOUR)),
                 part_revenue=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_PART)),
@@ -301,7 +306,7 @@ class RevenueTrendView(APIView):
 
         rows = (
             Invoice.objects
-            .filter(tenant_id=tenant_id, created_at__gte=since)
+            .filter(tenant_id=tenant_id, is_cancelled=False, created_at__gte=since)
             .annotate(month=TruncMonth("created_at"))
             .values("month")
             .annotate(
@@ -353,7 +358,7 @@ class PaymentDistributionView(APIView):
 
         rows = (
             Invoice.objects
-            .filter(tenant_id=tenant_id)
+            .filter(tenant_id=tenant_id, is_cancelled=False)
             .values("payment_status")
             .annotate(count=Count("id"), total_amount=Sum("total_amount"))
             .order_by("payment_status")
@@ -525,7 +530,11 @@ class TopServicesView(APIView):
             except (TypeError, ValueError):
                 pass  # fall back to the months/current_month window computed above
 
-        date_filter = Q(invoice__tenant_id=tenant_id, invoice__created_at__gte=since)
+        date_filter = Q(
+            invoice__tenant_id=tenant_id,
+            invoice__is_cancelled=False,
+            invoice__created_at__gte=since,
+        )
         if until:
             date_filter &= Q(invoice__created_at__lt=until)
 

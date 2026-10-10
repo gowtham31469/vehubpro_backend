@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     "apps.platform.invoices",
     "apps.platform.quotations",
     "apps.platform.portfolio",
+    "apps.platform.dealer_sales",
     "apps.platform.dashboard",
+    "apps.platform.notifications",
     "apps.consent",
     "apps.portal",
 ]

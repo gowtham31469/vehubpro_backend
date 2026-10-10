@@ -17,7 +17,7 @@ from core.storage.exceptions import StorageConfigError
 from core.storage.local_backend import save_upload_local
 from core.storage.s3_backend import upload_to_s3
 from core.storage.thumbnails import generate_thumbnail
-from core.storage.validation import validate_branding_upload, validate_image_upload
+from core.storage.validation import validate_branding_upload, validate_document_upload, validate_image_upload
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,33 @@ def upload_thumbnail_only(
         return save_upload_local(thumb_file, thumbnail_key)
     if backend == "S3":
         return upload_to_s3(thumb_file, thumbnail_key, "image/jpeg")
+
+    logger.error("Unsupported STORAGE_TYPE: %s", backend)
+    raise StorageConfigError(f"Unsupported STORAGE_TYPE: {backend}")
+
+
+def upload_document_file(
+    uploaded_file: UploadedFile,
+    *,
+    folder: str,
+    record_id: str,
+    max_bytes: int | None = None,
+) -> str:
+    """
+    Validate and store a general document (pdf, png, jpg, jpeg) — e.g. a
+    dealer_sales.VehicleDocument or VehicleWorkExpense receipt.
+
+    Returns the relative key / S3 key to persist in the database.
+    """
+    ext = validate_document_upload(uploaded_file, max_bytes=max_bytes)
+    relative_key = build_media_image_key(folder, str(record_id), ext)
+    backend = getattr(settings, "STORAGE_TYPE", "LOCAL").upper()
+
+    if backend == "LOCAL":
+        return save_upload_local(uploaded_file, relative_key)
+    if backend == "S3":
+        content_type = (uploaded_file.content_type or "").split(";")[0].strip() or None
+        return upload_to_s3(uploaded_file, relative_key, content_type)
 
     logger.error("Unsupported STORAGE_TYPE: %s", backend)
     raise StorageConfigError(f"Unsupported STORAGE_TYPE: {backend}")

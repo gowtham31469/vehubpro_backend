@@ -13,3 +13,4 @@ class AuditModule:
     BILLING = "BILLING"
     TENANT = "TENANT"
     SYSTEM = "SYSTEM"
+    INVENTORY = "INVENTORY"

@@ -42,13 +42,15 @@ class CityListAPIView(APIView):
 
 class RoleListAPIView(APIView):
     """Assignable roles for tenant-portal staff creation. Excludes the
-    platform-only SUPER_ADMIN role, which is never assignable from a tenant."""
+    platform-only SUPER_ADMIN role (never assignable from a tenant) and
+    CUSTOMER (an end-user signup role, not something staff assign to a
+    coworker via this picker)."""
 
     permission_classes = [IsAuthenticatedCustomerAccess]
 
     def get(self, request):
         queryset = Role.objects.filter(is_active=True, is_archived=False).exclude(
-            code="SUPER_ADMIN"
+            code__in=["SUPER_ADMIN", "CUSTOMER"]
         ).order_by("name")
         serializer = RoleSerializer(queryset, many=True)
         return success_response(

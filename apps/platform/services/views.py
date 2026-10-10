@@ -1,4 +1,5 @@
 from django.db import IntegrityError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -63,6 +64,9 @@ class ServiceCategoryListCreateAPIView(APIView):
         is_active = _is_active_flag(request)
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -183,12 +187,117 @@ class ServiceCategoryDetailAPIView(APIView):
         ServiceItem.objects.filter(
             category_id=category.id, tenant_id=tenant_id, is_archived=False
         ).update(is_archived=True, archived_at=now, updated_at=now)
+        if category.image:
+            delete_stored_media(category.image)
         category.archive()
         return success_response(
             request,
             code="SERVICE_CATEGORY_DELETED",
             message="Service category archived successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Service Category Image upload / delete
+# ---------------------------------------------------------------------------
+
+
+class ServiceCategoryImageAPIView(APIView):
+    """
+    PUT  /api/v1/services/categories/<uuid:pk>/image/
+        Upload or replace the service category image.
+        Accepts multipart/form-data with field ``image``.
+        Returns updated ServiceCategory data including ``image_url``.
+
+    DELETE /api/v1/services/categories/<uuid:pk>/image/
+        Remove the stored image and clear ``image`` field.
+    """
+
+    permission_classes = [IsAuthenticatedServiceAccess]
+
+    def put(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        category = get_object_or_404(ServiceCategory, pk=pk, tenant_id=tenant_id, is_archived=False)
+
+        uploaded = request.FILES.get("image")
+        if not uploaded:
+            return error_response(
+                request,
+                code="IMAGE_MISSING",
+                message="No image file provided.",
+                error="Include the image file under the 'image' form field.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            new_key = upload_image_file(
+                uploaded,
+                folder="service_category_images",
+                record_id=str(category.id),
+                max_bytes=2 * 1024 * 1024,  # 2 MB
+            )
+        except StorageValidationError as exc:
+            return error_response(
+                request,
+                code="IMAGE_VALIDATION_ERROR",
+                message=str(exc),
+                error=str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            return error_response(
+                request,
+                code="IMAGE_UPLOAD_FAILED",
+                message="Image upload failed.",
+                error=str(exc),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Delete old image after successful upload
+        if category.image:
+            delete_stored_media(category.image)
+
+        category.image = new_key
+        category.save(update_fields=["image", "updated_at"])
+
+        return success_response(
+            request,
+            code="SERVICE_CATEGORY_IMAGE_UPLOADED",
+            message="Service category image uploaded successfully.",
+            data=ServiceCategorySerializer(category).data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        category = get_object_or_404(ServiceCategory, pk=pk, tenant_id=tenant_id, is_archived=False)
+
+        if not category.image:
+            return error_response(
+                request,
+                code="IMAGE_NOT_FOUND",
+                message="This service category has no image.",
+                error="No image to delete.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        delete_stored_media(category.image)
+        category.image = None
+        category.save(update_fields=["image", "updated_at"])
+
+        return success_response(
+            request,
+            code="SERVICE_CATEGORY_IMAGE_DELETED",
+            message="Service category image removed successfully.",
+            data=ServiceCategorySerializer(category).data,
             status_code=status.HTTP_200_OK,
         )
 
@@ -218,6 +327,9 @@ class ServiceItemListCreateAPIView(APIView):
             queryset = queryset.filter(is_active=is_active)
             if is_active:
                 queryset = queryset.filter(category__is_active=True)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(Q(name__icontains=search) | Q(category__name__icontains=search))
         return success_response(
             request,
             code="DATA_RETRIEVED",

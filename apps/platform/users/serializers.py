@@ -151,7 +151,7 @@ class StaffUserSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         email_hash = encryptor.hash_value(value)
-        qs = UserPII.objects.filter(email_hash=email_hash)
+        qs = UserPII.objects.filter(email_hash=email_hash, is_customer_identity=False)
         if self.instance is not None:
             qs = qs.exclude(user_id=self.instance.id)
         if qs.exists():

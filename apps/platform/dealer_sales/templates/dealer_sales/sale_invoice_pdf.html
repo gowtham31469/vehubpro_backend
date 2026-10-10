@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoice {{ invoice_number }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 20mm 22mm 20mm 22mm;
+  }
+
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    color: #334155;
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page-wrapper { display: flex; flex-direction: column; min-height: 257mm; }
+  .content-area { flex: 1 0 auto; }
+
+  .brand-name    { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
+  .inv-title     { font-size: 28px; font-weight: 900; color: {{ accent_color|safe }}; line-height: 1; letter-spacing: -0.02em; text-align: right; }
+  .inv-number    { font-size: 14px; font-weight: 700; color: #0f172a; text-align: right; padding-top: 5px; }
+  .inv-date      { font-size: 11px; color: #64748b; text-align: right; padding-top: 3px; }
+  .sec-label     { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; padding-bottom: 8px; display: block; }
+  .cust-name     { font-size: 16px; font-weight: 700; color: #0f172a; padding-bottom: 5px; }
+  .cust-detail   { font-size: 12px; color: #64748b; padding-bottom: 2px; }
+  .veh-label     { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: 2px; }
+  .veh-value     { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .tot-label     { font-size: 12px; color: #64748b; text-align: right; }
+  .tot-value     { font-size: 12px; font-weight: 700; color: #0f172a; text-align: right; }
+  .tot-due-lbl   { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
+  .tot-due-val   { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
+
+  .layout-table  { width: 100%; border-collapse: collapse; }
+  .layout-table td { padding: 0; vertical-align: top; }
+
+  .hr-light  { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
+  .hr-medium { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+
+  .brand-logo { width: 52px; height: 52px; object-fit: contain; vertical-align: middle; }
+
+  .status-strip {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    background-color: {{ status_bg|safe }};
+    color: {{ status_fg|safe }};
+  }
+
+  .notes-box { font-size: 11px; color: #64748b; line-height: 1.6; background: #f8fafc; border-radius: 8px; padding: 12px 14px; margin-top: 18px; }
+
+  .footer { font-size: 9px; color: #94a3b8; text-align: center; padding-top: 24px; }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="content-area">
+
+    <table class="layout-table">
+      <tr>
+        <td style="width: 60%;">
+          {% if logo_data_url %}<img src="{{ logo_data_url }}" class="brand-logo" alt="">{% endif %}
+          <div class="brand-name">{{ tenant_name }}</div>
+        </td>
+        <td style="width: 40%;">
+          <div class="inv-title">INVOICE</div>
+          <div class="inv-number">{{ invoice_number }}</div>
+          <div class="inv-date">Issued {{ date_issued }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <hr class="hr-medium">
+
+    <table class="layout-table">
+      <tr>
+        <td style="width: 55%;">
+          <span class="sec-label">Billed To</span>
+          <div class="cust-name">{{ buyer_name }}</div>
+          {% if buyer_phone %}<div class="cust-detail">{{ buyer_phone }}</div>{% endif %}
+          {% if buyer_email %}<div class="cust-detail">{{ buyer_email }}</div>{% endif %}
+        </td>
+        <td style="width: 45%;">
+          <span class="sec-label">Vehicle</span>
+          <div class="veh-value">{{ vehicle_label }}</div>
+          <div class="cust-detail">Reg. No: {{ vehicle_reg }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <hr class="hr-light">
+
+    <table class="layout-table" style="margin-top: 10px;">
+      <tr>
+        <td style="width: 60%; vertical-align: middle;">
+          <span class="status-strip">{{ status_text }}</span>
+        </td>
+        <td style="width: 40%;">
+          <table class="layout-table">
+            <tr>
+              <td class="tot-label" style="padding-bottom: 8px;">Sale Amount</td>
+              <td class="tot-value" style="padding-bottom: 8px;">{{ sale_amount }}</td>
+            </tr>
+            <tr>
+              <td class="tot-label" style="padding-bottom: 8px;">Amount Paid</td>
+              <td class="tot-value" style="padding-bottom: 8px;">{{ amount_paid }}</td>
+            </tr>
+            <tr>
+              <td class="tot-due-lbl" style="padding-top: 6px; border-top: 1px solid #cbd5e1;">Balance Due</td>
+              <td class="tot-due-val" style="padding-top: 6px; border-top: 1px solid #cbd5e1;">{{ balance_due }}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    {% if notes %}
+    <div class="notes-box">
+      <strong>Notes:</strong> {{ notes }}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="footer">
+    Generated by {{ tenant_name }} via VeHubPro &middot; This is a sale invoice for a pre-owned vehicle transaction.
+  </div>
+</div>
+</body>
+</html>

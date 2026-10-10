@@ -303,6 +303,9 @@ class InvoiceReportSummaryAPIView(APIView):
         queryset, _, _ = _filter_invoices_from_request(
             Invoice.objects.filter(tenant_id=tenant_id), request
         )
+        # Cancelled invoices remain listed in the report table/CSV (flagged as
+        # cancelled) but must never contribute to the monetary KPIs.
+        queryset = queryset.filter(is_cancelled=False)
         aggregates = queryset.aggregate(
             count=Count("id"),
             total_invoiced=Sum("total_amount"),

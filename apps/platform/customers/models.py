@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from apps.common.utils.models import BaseModel, SoftArchiveModel
@@ -10,6 +11,13 @@ class Customer(BaseModel, SoftArchiveModel):
     )
 
     tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="customers")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customer_profile",
+    )
     customer_code = models.CharField(max_length=32, null=True, blank=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(null=True, blank=True)

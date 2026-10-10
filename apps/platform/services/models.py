@@ -20,6 +20,12 @@ class ServiceCategory(BaseModel, SoftArchiveModel):
         help_text="Vehicle type codes this category applies to (e.g. ['car','motorcycle']). Empty = all types.",
     )
     icon_code = models.CharField(max_length=50, null=True, blank=True)
+    image = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        help_text="Relative storage key (LOCAL path or S3 key) for the service category image.",
+    )
     sort_order = models.SmallIntegerField(default=0)
     is_active = models.BooleanField(default=True, db_index=True)
     # Manually curated by the tenant — only flagged categories appear as

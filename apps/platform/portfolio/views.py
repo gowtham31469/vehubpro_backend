@@ -4,9 +4,14 @@ from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
-from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle
+from apps.platform.portfolio.models import InventoryFeature, InventoryVehicle, VisitRequest, VisitRequestStatusEvent
 from apps.platform.portfolio.permissions import IsAuthenticatedPortfolioAccess
-from apps.platform.portfolio.serializers import InventoryFeatureSerializer, InventoryVehicleSerializer
+from apps.platform.portfolio.serializers import (
+    InventoryFeatureSerializer,
+    InventoryVehicleSerializer,
+    VisitRequestSerializer,
+    VisitRequestStatusEventSerializer,
+)
 from core.utils.api_response import error_response, success_response
 from core.utils.pagination import build_paginated_data
 
@@ -291,5 +296,94 @@ class PortfolioDashboardSummaryView(APIView):
                 "sold": by_status["sold"],
                 "available_inventory_value": str(available_inventory_value),
             },
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class VisitRequestListAPIView(APIView):
+    permission_classes = [IsAuthenticatedPortfolioAccess]
+
+    def get(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        queryset = VisitRequest.objects.select_related(
+            "vehicle", "vehicle__brand", "vehicle__vehicle_model"
+        ).filter(tenant_id=tenant_id, is_archived=False)
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(full_name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(email__icontains=search)
+                | Q(vehicle__brand__name__icontains=search)
+                | Q(vehicle__vehicle_model__name__icontains=search)
+            )
+
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Visit requests retrieved successfully.",
+            data=build_paginated_data(request, queryset, VisitRequestSerializer),
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class VisitRequestDetailAPIView(APIView):
+    permission_classes = [IsAuthenticatedPortfolioAccess]
+
+    def get_object(self, tenant_id, pk):
+        return get_object_or_404(VisitRequest, pk=pk, tenant_id=tenant_id, is_archived=False)
+
+    def patch(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        instance = self.get_object(tenant_id, pk)
+        previous_status = instance.status
+        serializer = VisitRequestSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        if serializer.instance.status != previous_status:
+            VisitRequestStatusEvent.objects.create(
+                visit_request=instance,
+                from_status=previous_status,
+                to_status=serializer.instance.status,
+                note=serializer.instance.staff_notes,
+                changed_by=request.user,
+            )
+
+        return success_response(
+            request,
+            code="VISIT_REQUEST_UPDATED",
+            message="Visit request updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class VisitRequestEventListAPIView(APIView):
+    permission_classes = [IsAuthenticatedPortfolioAccess]
+
+    def get(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+
+        visit_request = get_object_or_404(VisitRequest, pk=pk, tenant_id=tenant_id, is_archived=False)
+        events = visit_request.status_events.select_related("changed_by__pii").all()
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Visit request history retrieved successfully.",
+            data=VisitRequestStatusEventSerializer(events, many=True).data,
             status_code=status.HTTP_200_OK,
         )

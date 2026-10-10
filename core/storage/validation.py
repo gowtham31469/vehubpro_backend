@@ -28,6 +28,15 @@ ALLOWED_IMAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     ".webp": ("image/webp",),
 }
 
+# Receipts/agreements (e.g. dealer_sales.VehicleDocument, VehicleWorkExpense.receipt)
+# — unlike ALLOWED_IMAGE_EXTENSIONS this also permits PDFs.
+ALLOWED_DOCUMENT_EXTENSIONS: dict[str, tuple[str, ...]] = {
+    ".pdf": ("application/pdf",),
+    ".png": ("image/png",),
+    ".jpg": ("image/jpeg",),
+    ".jpeg": ("image/jpeg",),
+}
+
 
 def normalize_extension(filename: str) -> str:
     return Path(filename or "").suffix.lower()
@@ -111,6 +120,49 @@ def validate_image_upload(
             )
             raise StorageValidationError(
                 "Image content type does not match file extension."
+            )
+
+    return ext
+
+
+def validate_document_upload(
+    uploaded_file: UploadedFile,
+    *,
+    max_bytes: int | None = None,
+) -> str:
+    """
+    Validate a general document upload (pdf, png, jpg, jpeg) — e.g. a vehicle
+    work-expense receipt or an acquisition/consignment agreement.
+
+    Returns normalized extension including dot (e.g. ".pdf").
+    Raises StorageValidationError on failure.
+    """
+    limit = max_bytes if max_bytes is not None else int(
+        getattr(settings, "DOCUMENT_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
+    )
+    if uploaded_file.size > limit:
+        raise StorageValidationError(
+            f"File too large. Maximum size is {limit // (1024 * 1024)} MB."
+        )
+
+    ext = normalize_extension(uploaded_file.name)
+    if ext not in ALLOWED_DOCUMENT_EXTENSIONS:
+        raise StorageValidationError(
+            "Unsupported file type. Allowed: pdf, png, jpg, jpeg."
+        )
+
+    content_type = (uploaded_file.content_type or "").lower().split(";")[0].strip()
+    allowed_types = ALLOWED_DOCUMENT_EXTENSIONS[ext]
+    if content_type and content_type not in allowed_types:
+        if content_type not in ("application/octet-stream",):
+            logger.warning(
+                "Document upload content_type mismatch for %s: got %s, expected one of %s",
+                uploaded_file.name,
+                content_type,
+                allowed_types,
+            )
+            raise StorageValidationError(
+                "File content type does not match file extension."
             )
 
     return ext

@@ -101,6 +101,8 @@ class StaffUserListCreateAPIView(APIView):
     Tenant portal's User Management module — CRUD for staff users, scoped to
     the authenticated user's own tenant. SUPER_ADMIN accounts are never
     listed/manageable here, even if one happens to carry this tenant_id.
+    CUSTOMER accounts (self-service storefront signups, see apps/portal/) are
+    also excluded — they share the User table but are not staff.
     """
     permission_classes = [IsAuthenticated]
 
@@ -113,7 +115,7 @@ class StaffUserListCreateAPIView(APIView):
             User.objects.select_related("role")
             .prefetch_related("pii")
             .filter(tenant_id=tenant_id, is_archived=False)
-            .exclude(role__code="SUPER_ADMIN")
+            .exclude(role__code__in=["SUPER_ADMIN", "CUSTOMER"])
             .order_by("-created_at")
         )
 

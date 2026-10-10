@@ -81,7 +81,15 @@ class UserPII(BaseModel):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pii")
 
-    email_hash = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
+    # Denormalized from user.tenant, only meaningful for customer identities —
+    # lets us scope email uniqueness per tenant for customers (see
+    # is_customer_identity) while keeping staff email uniqueness global.
+    tenant = models.ForeignKey(
+        "tenants.Tenant", on_delete=models.CASCADE, related_name="user_pii_records", null=True, blank=True, db_index=True
+    )
+    is_customer_identity = models.BooleanField(default=False, db_index=True)
+
+    email_hash = models.CharField(max_length=64, null=True, blank=True, db_index=True)
 
     email_encrypted = models.TextField(null=True, blank=True)
     email_key_version = models.CharField(max_length=16, blank=True, default="")
@@ -158,6 +166,18 @@ class UserPII(BaseModel):
 
     class Meta:
         db_table = "user_pii"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["email_hash"],
+                condition=Q(is_customer_identity=False),
+                name="uniq_email_hash_staff",
+            ),
+            models.UniqueConstraint(
+                fields=["tenant", "email_hash"],
+                condition=Q(is_customer_identity=True),
+                name="uniq_email_hash_customer_per_tenant",
+            ),
+        ]
 
 
 class UserFCMToken(BaseModel):
