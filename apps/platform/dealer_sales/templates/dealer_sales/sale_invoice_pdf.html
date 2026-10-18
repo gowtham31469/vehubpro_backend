@@ -8,7 +8,7 @@
 
   @page {
     size: A4;
-    margin: 20mm 22mm 20mm 22mm;
+    margin: 16mm 18mm 16mm 18mm;
   }
 
   body {
@@ -20,45 +20,94 @@
     print-color-adjust: exact;
   }
 
-  .page-wrapper { display: flex; flex-direction: column; min-height: 257mm; }
-  .content-area { flex: 1 0 auto; }
+  .mono { font-family: 'Courier New', Courier, monospace; }
 
-  .brand-name    { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
-  .inv-title     { font-size: 28px; font-weight: 900; color: {{ accent_color|safe }}; line-height: 1; letter-spacing: -0.02em; text-align: right; }
-  .inv-number    { font-size: 14px; font-weight: 700; color: #0f172a; text-align: right; padding-top: 5px; }
-  .inv-date      { font-size: 11px; color: #64748b; text-align: right; padding-top: 3px; }
-  .sec-label     { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; padding-bottom: 8px; display: block; }
-  .cust-name     { font-size: 16px; font-weight: 700; color: #0f172a; padding-bottom: 5px; }
-  .cust-detail   { font-size: 12px; color: #64748b; padding-bottom: 2px; }
-  .veh-label     { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: 2px; }
-  .veh-value     { font-size: 13px; font-weight: 700; color: #0f172a; }
-  .tot-label     { font-size: 12px; color: #64748b; text-align: right; }
-  .tot-value     { font-size: 12px; font-weight: 700; color: #0f172a; text-align: right; }
-  .tot-due-lbl   { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
-  .tot-due-val   { font-size: 15px; font-weight: 800; color: {{ accent_color|safe }}; text-align: right; }
+  .page-wrapper { display: flex; flex-direction: column; min-height: 265mm; }
+  .content-area { flex: 1 0 auto; }
 
   .layout-table  { width: 100%; border-collapse: collapse; }
   .layout-table td { padding: 0; vertical-align: top; }
 
-  .hr-light  { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
-  .hr-medium { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+  /* ── Header ────────────────────────────────────────────────────────────── */
+  .logo-box      { width: 48px; height: 48px; border-radius: 10px; background-color: {{ accent_color|safe }}; text-align: center; vertical-align: middle; }
+  .logo-box-img  { width: 48px; height: 48px; object-fit: contain; border-radius: 10px; }
+  .logo-initial  { font-size: 20px; font-weight: 800; color: #ffffff; line-height: 48px; }
+  .brand-name    { font-size: 19px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
+  .brand-sub     { font-size: 9px; font-weight: 700; color: {{ accent_color|safe }}; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px; }
+  .brand-contact { font-size: 10px; color: #64748b; margin-top: 6px; }
 
-  .brand-logo { width: 52px; height: 52px; object-fit: contain; vertical-align: middle; }
-
-  .status-strip {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    background-color: {{ status_bg|safe }};
-    color: {{ status_fg|safe }};
+  .status-pill {
+    display: inline-block; padding: 4px 13px; border-radius: 999px; font-size: 9px;
+    font-weight: 800; letter-spacing: 0.1em; margin-bottom: 8px;
+    background-color: {{ status_bg|safe }}; color: {{ status_fg|safe }};
   }
+  .inv-title     { font-size: 25px; font-weight: 900; color: #0f172a; line-height: 1; letter-spacing: -0.01em; text-align: right; }
+  .inv-meta      { font-size: 10.5px; color: #64748b; text-align: right; padding-top: 7px; line-height: 1.7; }
+  .inv-meta b    { color: #0f172a; font-weight: 700; }
 
-  .notes-box { font-size: 11px; color: #64748b; line-height: 1.6; background: #f8fafc; border-radius: 8px; padding: 12px 14px; margin-top: 18px; }
+  /* ── Section labels ───────────────────────────────────────────────────── */
+  .sec-label     { font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; padding-bottom: 7px; display: block; }
 
-  .footer { font-size: 9px; color: #94a3b8; text-align: center; padding-top: 24px; }
+  /* ── Billed To (plain, no box) ────────────────────────────────────────── */
+  .cust-name     { font-size: 15px; font-weight: 700; color: #0f172a; padding-bottom: 4px; }
+  .cust-detail   { font-size: 11.5px; color: #64748b; padding-bottom: 2px; }
+
+  /* ── Info boxes ────────────────────────────────────────────────────────── */
+  .info-box      { background: #f8fafc; border: 1px solid #eef2f6; border-radius: 10px; padding: 14px 16px; }
+  .info-row td   { padding: 3px 0; font-size: 11px; }
+  .info-row .k   { color: #94a3b8; }
+  .info-row .v   { color: #0f172a; font-weight: 700; text-align: right; }
+
+  .band          { background: #f8fafc; border: 1px solid #eef2f6; border-radius: 10px; padding: 12px 16px; }
+  .band-label    { font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 4px; }
+  .band-value    { font-size: 13px; font-weight: 700; color: #0f172a; }
+
+  /* ── Items table ───────────────────────────────────────────────────────── */
+  .items-table    { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .items-table th {
+    font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: left; padding: 9px 10px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+  }
+  .items-table th.r, .items-table td.r { text-align: right; }
+  .items-table td { font-size: 11.5px; color: #334155; padding: 11px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .item-name     { font-weight: 700; color: #0f172a; }
+  .item-sub      { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+
+  /* ── Words + totals row ───────────────────────────────────────────────── */
+  .words-box     { background: #f8fafc; border: 1px solid #eef2f6; border-radius: 8px; padding: 10px 12px; font-size: 10.5px; color: #475569; line-height: 1.5; }
+  .words-lbl     { font-weight: 800; color: #0f172a; }
+
+  .totals-card   { background: #f8fafc; border: 1px solid #eef2f6; border-radius: 10px; padding: 16px 18px; }
+  .tot-row td    { padding: 5px 0; }
+  .tot-label     { font-size: 11.5px; color: #64748b; text-align: right; }
+  .tot-value     { font-size: 11.5px; font-weight: 700; color: #0f172a; text-align: right; padding-left: 20px; }
+  .tot-due-lbl   { font-size: 14px; font-weight: 800; color: #0f172a; text-align: right; padding-top: 10px; }
+  .tot-due-val   { font-size: 18px; font-weight: 900; color: {{ accent_color|safe }}; text-align: right; padding-top: 10px; padding-left: 20px; }
+  .tot-divider   { border-top: 1.5px solid #e2e8f0; }
+
+  /* ── Payments table ────────────────────────────────────────────────────── */
+  .pay-table     { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .pay-table th  {
+    font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+  }
+  .pay-table th.r, .pay-table td.r { text-align: right; }
+  .pay-table td  { font-size: 11px; color: #334155; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+
+  /* ── Notes ─────────────────────────────────────────────────────────────── */
+  .notes-box {
+    font-size: 11px; color: #334155; line-height: 1.6;
+    background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 14px;
+  }
+  .notes-lbl { font-size: 8.5px; font-weight: 800; color: #0284c7; text-transform: uppercase; letter-spacing: 0.1em; padding-bottom: 5px; display: block; }
+
+  .hr-light { border: none; border-top: 1px solid #eef2f6; margin: 20px 0; }
+
+  /* ── Signatures ────────────────────────────────────────────────────────── */
+  .sig-block     { margin-top: 70px; }
+  .sig-line      { border-top: 1.5px solid #cbd5e1; padding-top: 6px; }
+  .sig-name      { font-size: 11.5px; font-weight: 700; color: #0f172a; }
+  .sig-role      { font-size: 9.5px; color: #94a3b8; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -68,71 +117,182 @@
     <table class="layout-table">
       <tr>
         <td style="width: 60%;">
-          {% if logo_data_url %}<img src="{{ logo_data_url }}" class="brand-logo" alt="">{% endif %}
-          <div class="brand-name">{{ tenant_name }}</div>
+          <table class="layout-table"><tr>
+            <td style="width: 56px;">
+              {% if logo_data_url %}
+                <img src="{{ logo_data_url }}" class="logo-box-img" alt="">
+              {% else %}
+                <div class="logo-box"><span class="logo-initial">{{ tenant_initial }}</span></div>
+              {% endif %}
+            </td>
+            <td>
+              <div class="brand-name">{{ tenant_name }}</div>
+              <div class="brand-sub">Vehicle Sale Invoice</div>
+              {% if whatsapp_number %}<div class="brand-contact">WhatsApp: {{ whatsapp_number }}</div>{% endif %}
+            </td>
+          </tr></table>
         </td>
         <td style="width: 40%;">
+          <div style="text-align: right;"><span class="status-pill">{{ status_text }}</span></div>
           <div class="inv-title">INVOICE</div>
-          <div class="inv-number">{{ invoice_number }}</div>
-          <div class="inv-date">Issued {{ date_issued }}</div>
-        </td>
-      </tr>
-    </table>
-
-    <hr class="hr-medium">
-
-    <table class="layout-table">
-      <tr>
-        <td style="width: 55%;">
-          <span class="sec-label">Billed To</span>
-          <div class="cust-name">{{ buyer_name }}</div>
-          {% if buyer_phone %}<div class="cust-detail">{{ buyer_phone }}</div>{% endif %}
-          {% if buyer_email %}<div class="cust-detail">{{ buyer_email }}</div>{% endif %}
-        </td>
-        <td style="width: 45%;">
-          <span class="sec-label">Vehicle</span>
-          <div class="veh-value">{{ vehicle_label }}</div>
-          <div class="cust-detail">Reg. No: {{ vehicle_reg }}</div>
+          <div class="inv-meta">
+            Invoice No: <b class="mono">{{ invoice_number }}</b><br>
+            Date: <b>{{ date_issued }}</b>
+          </div>
         </td>
       </tr>
     </table>
 
     <hr class="hr-light">
 
-    <table class="layout-table" style="margin-top: 10px;">
+    <table class="layout-table">
       <tr>
-        <td style="width: 60%; vertical-align: middle;">
-          <span class="status-strip">{{ status_text }}</span>
+        <td style="width: 48%; padding-right: 10px;">
+          <span class="sec-label">Billed To</span>
+          <div class="cust-name">{{ buyer_name }}</div>
+          {% if buyer_phone %}<div class="cust-detail">{{ buyer_phone }}</div>{% endif %}
+          {% if buyer_email %}<div class="cust-detail">{{ buyer_email }}</div>{% endif %}
         </td>
-        <td style="width: 40%;">
-          <table class="layout-table">
-            <tr>
-              <td class="tot-label" style="padding-bottom: 8px;">Sale Amount</td>
-              <td class="tot-value" style="padding-bottom: 8px;">{{ sale_amount }}</td>
-            </tr>
-            <tr>
-              <td class="tot-label" style="padding-bottom: 8px;">Amount Paid</td>
-              <td class="tot-value" style="padding-bottom: 8px;">{{ amount_paid }}</td>
-            </tr>
-            <tr>
-              <td class="tot-due-lbl" style="padding-top: 6px; border-top: 1px solid #cbd5e1;">Balance Due</td>
-              <td class="tot-due-val" style="padding-top: 6px; border-top: 1px solid #cbd5e1;">{{ balance_due }}</td>
-            </tr>
-          </table>
+        <td style="width: 4%;"></td>
+        <td style="width: 48%; padding-left: 10px;">
+          <span class="sec-label">Vehicle</span>
+          <div class="info-box">
+            <table class="layout-table">
+              <tr class="info-row"><td class="k">Make &amp; Model</td><td class="v">{{ vehicle_label }}</td></tr>
+              <tr class="info-row"><td class="k">Registration No.</td><td class="v mono">{{ vehicle_reg }}</td></tr>
+            </table>
+          </div>
         </td>
       </tr>
     </table>
 
-    {% if notes %}
-    <div class="notes-box">
-      <strong>Notes:</strong> {{ notes }}
+    <table class="layout-table" style="margin-top: 18px;">
+      <tr>
+        <td style="width: 32%; padding-right: 8px;">
+          <div class="band"><div class="band-label">Sale Date</div><div class="band-value">{{ sale_date }}</div></div>
+        </td>
+        <td style="width: 36%; padding: 0 8px;">
+          <div class="band"><div class="band-label">Salesperson</div><div class="band-value">{{ salesperson_name|default:"—" }}</div></div>
+        </td>
+        <td style="width: 32%; padding-left: 8px;">
+          <div class="band"><div class="band-label">Payment Status</div><div class="band-value">{{ status_text|title }}</div></div>
+        </td>
+      </tr>
+    </table>
+
+    <table class="items-table" style="margin-top: 20px;">
+      <thead>
+        <tr>
+          <th style="width: 8%;">#</th>
+          <th style="width: 62%;">Description</th>
+          <th class="r" style="width: 30%;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>01</td>
+          <td>
+            <div class="item-name">{{ vehicle_label }} — Vehicle Sale</div>
+            <div class="item-sub">Reg. No: {{ vehicle_reg }}</div>
+          </td>
+          <td class="r">{{ listing_price|default:sale_amount }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="layout-table" style="margin-top: 16px;">
+      <tr>
+        <td style="width: 52%; padding-right: 10px; vertical-align: bottom;">
+          <div class="words-box">
+            <span class="words-lbl">Amount in Words:</span> {{ amount_in_words }}
+          </div>
+        </td>
+        <td style="width: 48%;">
+          <div class="totals-card">
+            <table class="layout-table">
+              {% if listing_price %}
+              <tr class="tot-row">
+                <td class="tot-label">Listing Price (MRP)</td>
+                <td class="tot-value">{{ listing_price }}</td>
+              </tr>
+              {% endif %}
+              {% if discount_amount %}
+              <tr class="tot-row">
+                <td class="tot-label">Discount Given</td>
+                <td class="tot-value">− {{ discount_amount }}</td>
+              </tr>
+              {% endif %}
+              <tr class="tot-row{% if listing_price or discount_amount %} tot-divider{% endif %}">
+                <td class="tot-label">Sale Amount</td>
+                <td class="tot-value">{{ sale_amount }}</td>
+              </tr>
+              <tr class="tot-row">
+                <td class="tot-label">Amount Paid</td>
+                <td class="tot-value">{{ amount_paid }}</td>
+              </tr>
+              <tr class="tot-row tot-divider">
+                <td class="tot-due-lbl">Balance Due</td>
+                <td class="tot-due-val">{{ balance_due }}</td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    {% if payments %}
+    <div style="margin-top: 22px;">
+      <span class="sec-label">Payment History</span>
+      <table class="pay-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Mode</th>
+            <th>Reference</th>
+            <th class="r">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td>{{ p.date }}</td>
+            <td>{{ p.mode }}</td>
+            <td>{{ p.reference|default:"—" }}</td>
+            <td class="r">{{ p.amount }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
     {% endif %}
 
-  </div>
+    {% if notes %}
+    <div style="margin-top: 22px;">
+      <div class="notes-box">
+        <span class="notes-lbl">Notes</span>
+        {{ notes }}
+      </div>
+    </div>
+    {% endif %}
 
-  <div class="footer">
-    Generated by {{ tenant_name }} via VeHubPro &middot; This is a sale invoice for a pre-owned vehicle transaction.
+    <table class="layout-table sig-block">
+      <tr>
+        <td style="width: 48%;">
+          <div class="sig-line">
+            <div class="sig-name">{{ tenant_name }}</div>
+            <div class="sig-role">Authorized Signatory</div>
+          </div>
+        </td>
+        <td style="width: 4%;"></td>
+        <td style="width: 48%;">
+          <div class="sig-line">
+            <div class="sig-name">{{ buyer_name }}</div>
+            <div class="sig-role">Buyer Signature</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
   </div>
 </div>
 </body>

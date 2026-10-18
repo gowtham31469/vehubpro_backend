@@ -38,6 +38,7 @@ from apps.platform.dealer_sales.serializers import (
     VehicleReservationSerializer,
     VehicleSaleInvoiceSerializer,
     VehicleSaleQuotationSerializer,
+    VehicleSalesReportRowSerializer,
     VehicleSaleSerializer,
     VehicleSettlementSerializer,
     VehicleTimelineEventSerializer,
@@ -51,7 +52,9 @@ from apps.platform.dealer_sales.services import (
     cancel_quotation,
     cancel_reservation,
     cancel_sale,
+    compute_portfolio_profitability_insights,
     compute_profitability,
+    compute_sale_profit,
     confirm_sale,
     create_booking,
     create_delivery,
@@ -63,6 +66,7 @@ from apps.platform.dealer_sales.services import (
     record_sale_invoice_payment,
     record_vehicle_timeline_event,
     reject_quotation,
+    sales_report_queryset,
     send_quotation,
 )
 from apps.platform.portfolio.models import InventoryVehicle
@@ -392,6 +396,215 @@ class VehicleProfitabilityAPIView(APIView):
         )
 
 
+def _require_tenant_id(request):
+    """Returns (tenant_id, error_response) — exactly one is None. Shared by
+    the tenant-wide (not single-vehicle-scoped) views below."""
+    tenant_id = getattr(request.user, "tenant_id", None)
+    if not tenant_id:
+        return None, error_response(
+            request,
+            code="TENANT_CONTEXT_MISSING",
+            message="Authenticated user is not mapped to a tenant.",
+            error="Tenant association is required for this endpoint.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    return tenant_id, None
+
+
+class PortfolioProfitabilityInsightsAPIView(APIView):
+    """Aggregate profitability across all confirmed sales, for the Inventory
+    list page's Insights section — not scoped to a single vehicle."""
+
+    permission_classes = [IsAuthenticatedDealerSalesAccess]
+
+    def get(self, request):
+        tenant_id, error = _require_tenant_id(request)
+        if error:
+            return error
+        return success_response(
+            request, code="DATA_RETRIEVED", message="Profitability insights computed successfully.",
+            data=compute_portfolio_profitability_insights(tenant_id), status_code=status.HTTP_200_OK,
+        )
+
+
+def _parse_sales_report_filters(request):
+    return (
+        request.query_params.get("date_from", "").strip(),
+        request.query_params.get("date_to", "").strip(),
+        request.query_params.get("inventory_type", "").strip(),
+        request.query_params.get("status", "").strip(),
+    )
+
+
+def _require_sales_report_date_range(request):
+    """Returns (date_from, date_to, error_response) — exactly one of the last two is None."""
+    date_from, date_to, _, _ = _parse_sales_report_filters(request)
+    if not date_from or not date_to:
+        return None, None, error_response(
+            request,
+            code="DATE_RANGE_REQUIRED",
+            message="A date range is required to generate this report.",
+            error="Both date_from and date_to query parameters are required.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    return date_from, date_to, None
+
+
+class VehicleSalesReportListAPIView(APIView):
+    """GET /api/v1/dealer-sales/reports/sales/ — paginated preview table for
+    the Vehicle Sales Report. Same row source as the summary/export below."""
+
+    permission_classes = [IsAuthenticatedDealerSalesAccess]
+
+    def get(self, request):
+        tenant_id, error = _require_tenant_id(request)
+        if error:
+            return error
+        date_from, date_to, inventory_type, status_param = _parse_sales_report_filters(request)
+        queryset = sales_report_queryset(
+            tenant_id, date_from=date_from or None, date_to=date_to or None,
+            inventory_type=inventory_type, status=status_param,
+        )
+        return success_response(
+            request, code="DATA_RETRIEVED", message="Vehicle sales report retrieved successfully.",
+            data=build_paginated_data(request, queryset, VehicleSalesReportRowSerializer),
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class VehicleSalesReportSummaryAPIView(APIView):
+    """
+    GET /api/v1/dealer-sales/reports/sales/summary/
+
+    KPIs for the Vehicle Sales Report. Unlike the invoice report's summary
+    (a pure DB-side Sum()), profit isn't a stored column here — owned-sale
+    profit depends on acquisition + work-expense rows, consignment profit on
+    a Settlement row — so this sums compute_sale_profit() per matching sale.
+    Fine at dealer-inventory scale (tens to low hundreds of sales/range, not
+    the thousands a service-invoice report might see). date_from/date_to
+    required, matching the invoice report's convention.
+    """
+
+    permission_classes = [IsAuthenticatedDealerSalesAccess]
+
+    def get(self, request):
+        tenant_id, error = _require_tenant_id(request)
+        if error:
+            return error
+        date_from, date_to, date_error = _require_sales_report_date_range(request)
+        if date_error:
+            return date_error
+        _, _, inventory_type, status_param = _parse_sales_report_filters(request)
+
+        sales = sales_report_queryset(
+            tenant_id, date_from=date_from, date_to=date_to,
+            inventory_type=inventory_type, status=status_param,
+        )
+
+        from decimal import Decimal
+        count = 0
+        cancelled_count = 0
+        total_sale_value = Decimal("0.00")
+        total_discount = Decimal("0.00")
+        total_profit = Decimal("0.00")
+        margin_sum = Decimal("0.00")
+        margin_count = 0
+
+        for sale in sales:
+            count += 1
+            if sale.status == VehicleSale.STATUS_CANCELLED:
+                cancelled_count += 1
+                continue
+            total_sale_value += sale.final_sale_price
+            total_discount += sale.discount_amount or Decimal("0.00")
+            profit_data = compute_sale_profit(sale)
+            if profit_data:
+                total_profit += profit_data["profit"]
+                if profit_data["margin_percent"] is not None:
+                    margin_sum += profit_data["margin_percent"]
+                    margin_count += 1
+
+        return success_response(
+            request, code="DATA_RETRIEVED", message="Vehicle sales report summary retrieved successfully.",
+            data={
+                "count": count,
+                "cancelled_count": cancelled_count,
+                "total_sale_value": str(total_sale_value),
+                "total_discount": str(total_discount),
+                "total_profit": str(total_profit),
+                "average_margin_percent": str(margin_sum / margin_count) if margin_count else None,
+            },
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class VehicleSalesReportExportAPIView(APIView):
+    """GET /api/v1/dealer-sales/reports/sales/export/ — streams the Vehicle
+    Sales Report as CSV straight from the DB cursor, same row source and
+    column math as the summary/preview above. date_from/date_to required."""
+
+    permission_classes = [IsAuthenticatedDealerSalesAccess]
+
+    def get(self, request):
+        tenant_id, error = _require_tenant_id(request)
+        if error:
+            return error
+        date_from, date_to, date_error = _require_sales_report_date_range(request)
+        if date_error:
+            return date_error
+        _, _, inventory_type, status_param = _parse_sales_report_filters(request)
+
+        sales = sales_report_queryset(
+            tenant_id, date_from=date_from, date_to=date_to,
+            inventory_type=inventory_type, status=status_param,
+        )
+
+        from django.http import StreamingHttpResponse
+
+        def row_stream():
+            import csv
+            import io
+
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow([
+                "Sale Date", "Vehicle", "Reg. No", "Type", "Buyer", "Salesperson",
+                "Sale Amount", "Discount", "Profit", "Margin %", "Status",
+            ])
+            yield buf.getvalue()
+
+            for sale in sales.iterator(chunk_size=500):
+                buf.seek(0)
+                buf.truncate(0)
+                vehicle = sale.vehicle
+                profit_data = compute_sale_profit(sale) if sale.status == VehicleSale.STATUS_CONFIRMED else None
+                salesperson_name = ""
+                if sale.salesperson_id:
+                    try:
+                        salesperson_name = sale.salesperson.pii.get_full_name() or ""
+                    except Exception:
+                        salesperson_name = ""
+                writer.writerow([
+                    sale.sale_date.strftime("%Y-%m-%d"),
+                    f"{vehicle.year} {vehicle.brand.name} {vehicle.vehicle_model.name}",
+                    vehicle.registration_no or "",
+                    "Consignment" if vehicle.inventory_type == InventoryVehicle.INVENTORY_TYPE_CUSTOMER_CONSIGNMENT else "Owned",
+                    sale.buyer.full_name,
+                    salesperson_name,
+                    sale.final_sale_price,
+                    sale.discount_amount,
+                    profit_data["profit"] if profit_data else "",
+                    f"{profit_data['margin_percent']:.2f}" if profit_data and profit_data["margin_percent"] is not None else "",
+                    "Cancelled" if sale.status == VehicleSale.STATUS_CANCELLED else "Confirmed",
+                ])
+                yield buf.getvalue()
+
+        filename = f"vehicle_sales_report_{date_from}_to_{date_to}.csv"
+        response = StreamingHttpResponse(row_stream(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 2 — Quotation → Negotiation → Reservation → Booking → Sale →
 # Delivery → Settlement
@@ -574,7 +787,10 @@ class VehicleReservationListCreateAPIView(APIView):
             return error
         serializer = ReservationCreateInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        reservation = create_reservation(vehicle=vehicle, user=request.user, **serializer.validated_data)
+        try:
+            reservation = create_reservation(vehicle=vehicle, user=request.user, **serializer.validated_data)
+        except DealerSalesError as exc:
+            return _dealer_sales_error_response(request, exc)
         return success_response(
             request, code="RESERVATION_CREATED", message="Reservation created successfully.",
             data=VehicleReservationSerializer(reservation).data, status_code=status.HTTP_201_CREATED,
@@ -623,7 +839,10 @@ class VehicleBookingListCreateAPIView(APIView):
             return error
         serializer = BookingCreateInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        booking = create_booking(vehicle=vehicle, user=request.user, **serializer.validated_data)
+        try:
+            booking = create_booking(vehicle=vehicle, user=request.user, **serializer.validated_data)
+        except DealerSalesError as exc:
+            return _dealer_sales_error_response(request, exc)
         return success_response(
             request, code="BOOKING_CREATED", message="Booking created successfully.",
             data=VehicleBookingSerializer(booking).data, status_code=status.HTTP_201_CREATED,

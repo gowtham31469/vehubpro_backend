@@ -102,10 +102,18 @@ def record_price_change(
 
 
 def get_total_work_expenses(vehicle: InventoryVehicle) -> Decimal:
-    """Sum of all non-archived, non-cancelled work-expense amounts for a vehicle."""
+    """
+    Sum of work-expense amounts actually incurred for a vehicle — feeds
+    landed cost / profitability / settlement dealer-expense figures, so it
+    deliberately excludes 'planned' (budgeted, not yet spent) alongside
+    cancelled, counting only in_progress + completed. A vehicle's Work &
+    Expenses tab total is a separate, simpler display sum that still shows
+    planned rows — this function is specifically the money-actually-spent one.
+    """
     total = VehicleWorkExpense.objects.filter(
-        vehicle=vehicle, is_archived=False
-    ).exclude(status=VehicleWorkExpense.STATUS_CANCELLED).aggregate(total=Sum("amount"))["total"]
+        vehicle=vehicle, is_archived=False,
+        status__in=[VehicleWorkExpense.STATUS_IN_PROGRESS, VehicleWorkExpense.STATUS_COMPLETED],
+    ).aggregate(total=Sum("amount"))["total"]
     return total or Decimal("0.00")
 
 
@@ -178,6 +186,131 @@ def compute_profitability(vehicle: InventoryVehicle) -> dict:
         )
 
     return result
+
+
+def compute_sale_profit(sale: VehicleSale) -> dict | None:
+    """
+    {profit, margin_percent} for a single CONFIRMED sale, computed the same
+    way as compute_profitability() for a vehicle — owned: final_sale_price
+    minus purchase_price and work expenses actually incurred; consignment:
+    the settlement's net_dealer_profit (margin_percent is None there, since
+    "margin on sale price" isn't the right lens for a commission payout).
+    Returns None for a consignment sale with no settlement yet (profit not
+    finalized) — never for an owned sale, which is always computable.
+    Shared by compute_portfolio_profitability_insights() and the Vehicle
+    Sales Report so both agree on the same numbers.
+    """
+    vehicle = sale.vehicle
+    if vehicle.inventory_type == InventoryVehicle.INVENTORY_TYPE_CUSTOMER_CONSIGNMENT:
+        settlement = getattr(sale, "settlement", None)
+        if not settlement:
+            return None
+        return {"profit": settlement.net_dealer_profit, "margin_percent": None}
+
+    acquisition = getattr(vehicle, "acquisition", None)
+    purchase_price = acquisition.purchase_price if acquisition else None
+    total_landed_cost = (purchase_price or Decimal("0.00")) + get_total_work_expenses(vehicle)
+    profit = sale.final_sale_price - total_landed_cost
+    margin_percent = (profit / sale.final_sale_price * 100) if sale.final_sale_price else None
+    return {"profit": profit, "margin_percent": margin_percent}
+
+
+def compute_portfolio_profitability_insights(tenant_id) -> dict:
+    """
+    Aggregate profitability across every confirmed sale for a tenant, for the
+    Inventory list page's Insights section. Reuses the same live-computed
+    gross_profit (owned, from final_sale_price - purchase_price - work
+    expenses) / net_dealer_profit (consignment, from the stored Settlement)
+    math as compute_profitability() for a single vehicle — never cached.
+
+    Consignment sales without a settlement yet are excluded from the
+    aggregate (their dealer profit isn't finalized), same as
+    compute_profitability()'s per-vehicle behavior.
+    """
+    sales = VehicleSale.objects.filter(
+        tenant_id=tenant_id, status=VehicleSale.STATUS_CONFIRMED,
+    ).select_related("vehicle", "vehicle__brand", "vehicle__vehicle_model", "vehicle__acquisition", "settlement")
+
+    owned_count = 0
+    owned_total_profit = Decimal("0.00")
+    owned_margin_sum = Decimal("0.00")
+    owned_margin_count = 0
+
+    consignment_count = 0
+    consignment_total_profit = Decimal("0.00")
+
+    performers = []
+
+    for sale in sales:
+        profit_data = compute_sale_profit(sale)
+        if profit_data is None:
+            continue
+        vehicle = sale.vehicle
+        profit = profit_data["profit"]
+        margin_percent = profit_data["margin_percent"]
+
+        if vehicle.inventory_type == InventoryVehicle.INVENTORY_TYPE_CUSTOMER_CONSIGNMENT:
+            consignment_count += 1
+            consignment_total_profit += profit
+        else:
+            owned_count += 1
+            owned_total_profit += profit
+            if margin_percent is not None:
+                owned_margin_sum += margin_percent
+                owned_margin_count += 1
+
+        performers.append({
+            "vehicle_id": str(vehicle.id),
+            "vehicle_label": f"{vehicle.year} {vehicle.brand.name} {vehicle.vehicle_model.name}",
+            "inventory_type": vehicle.inventory_type,
+            "sale_date": sale.sale_date,
+            "final_sale_price": sale.final_sale_price,
+            "profit": profit,
+            "margin_percent": margin_percent,
+        })
+
+    performers_by_profit_desc = sorted(performers, key=lambda p: p["profit"], reverse=True)
+
+    return {
+        "sold_vehicle_count": owned_count + consignment_count,
+        "owned": {
+            "count": owned_count,
+            "total_gross_profit": owned_total_profit,
+            "average_gross_margin_percent": (
+                (owned_margin_sum / owned_margin_count) if owned_margin_count else None
+            ),
+        },
+        "consignment": {
+            "count": consignment_count,
+            "total_net_dealer_profit": consignment_total_profit,
+        },
+        "combined_total_profit": owned_total_profit + consignment_total_profit,
+        "top_performers": performers_by_profit_desc[:5],
+        "lowest_performers": list(reversed(performers_by_profit_desc[-5:])),
+    }
+
+
+def sales_report_queryset(tenant_id, *, date_from=None, date_to=None, inventory_type=None, status=None):
+    """
+    Row source shared by the Vehicle Sales Report's summary, paginated
+    preview, and CSV export — a single query so all three always agree.
+    Includes cancelled sales unless `status` narrows it (same convention as
+    the invoice report's is_cancelled filter): callers decide what to sum,
+    this just returns the matching rows ordered newest-first.
+    """
+    queryset = VehicleSale.objects.filter(tenant_id=tenant_id).select_related(
+        "vehicle", "vehicle__brand", "vehicle__vehicle_model", "vehicle__acquisition", "settlement",
+        "buyer", "salesperson", "salesperson__pii",
+    )
+    if date_from:
+        queryset = queryset.filter(sale_date__gte=date_from)
+    if date_to:
+        queryset = queryset.filter(sale_date__lte=date_to)
+    if inventory_type in (InventoryVehicle.INVENTORY_TYPE_OWNED, InventoryVehicle.INVENTORY_TYPE_CUSTOMER_CONSIGNMENT):
+        queryset = queryset.filter(vehicle__inventory_type=inventory_type)
+    if status in (VehicleSale.STATUS_CONFIRMED, VehicleSale.STATUS_CANCELLED):
+        queryset = queryset.filter(status=status)
+    return queryset.order_by("-sale_date", "-created_at")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -279,6 +412,14 @@ def create_reservation(
     *, vehicle, customer, reservation_date, quotation=None, expiry_date=None,
     deposit_amount=None, notes="", user=None,
 ) -> VehicleReservation:
+    if VehicleReservation.objects.filter(
+        vehicle=vehicle, customer=customer, status=VehicleReservation.STATUS_ACTIVE,
+    ).exists():
+        raise DealerSalesError(
+            f"{customer.full_name} already has an active reservation on this vehicle. "
+            "Cancel it first if the terms need to change."
+        )
+
     reservation = VehicleReservation.objects.create(
         tenant_id=vehicle.tenant_id, vehicle=vehicle, customer=customer, quotation=quotation,
         reservation_date=reservation_date, expiry_date=expiry_date, deposit_amount=deposit_amount,
@@ -317,6 +458,17 @@ def create_booking(
     *, vehicle, customer, booking_date, reservation=None, quotation=None,
     booking_amount=None, notes="", user=None,
 ) -> VehicleBooking:
+    if reservation is not None and reservation.customer_id != customer.id:
+        raise DealerSalesError(
+            f"This reservation belongs to {reservation.customer.full_name}, not {customer.full_name} — "
+            "a booking can only be linked to a reservation made by the same customer."
+        )
+    if _vehicle_has_other_active_booking_or_sale(vehicle):
+        raise DealerSalesError(
+            "This vehicle already has an active booking or confirmed sale. "
+            "Cancel it first before creating a new booking."
+        )
+
     booking = VehicleBooking.objects.create(
         tenant_id=vehicle.tenant_id, vehicle=vehicle, customer=customer, reservation=reservation,
         quotation=quotation, booking_date=booking_date, booking_amount=booking_amount,
@@ -361,6 +513,11 @@ def confirm_sale(
 ) -> VehicleSale:
     if _get_confirmed_sale(vehicle) is not None:
         raise DealerSalesError("This vehicle already has a confirmed sale.")
+    if booking is not None and booking.customer_id != buyer.id:
+        raise DealerSalesError(
+            f"This booking belongs to {booking.customer.full_name}, not {buyer.full_name} — "
+            "a sale can only be linked to a booking made by the same buyer."
+        )
 
     sale = VehicleSale.objects.create(
         tenant_id=vehicle.tenant_id, vehicle=vehicle, buyer=buyer, quotation=quotation, booking=booking,
@@ -375,6 +532,22 @@ def confirm_sale(
         quotation.status = VehicleSaleQuotation.STATUS_CONVERTED
         quotation.converted_at = timezone.now()
         quotation.save(update_fields=["status", "converted_at", "updated_at"])
+
+    # Any OTHER still-active booking on this vehicle (for a different
+    # customer) is now moot — the car is sold. Auto-cancel it instead of
+    # leaving a dangling "active" booking that no longer means anything.
+    other_active_bookings = VehicleBooking.objects.filter(
+        vehicle=vehicle, status=VehicleBooking.STATUS_ACTIVE,
+    ).exclude(id=getattr(booking, "id", None))
+    for other in other_active_bookings:
+        other.status = VehicleBooking.STATUS_CANCELLED
+        other.cancelled_at = timezone.now()
+        other.cancellation_reason = "Vehicle sold to a different buyer."
+        other.save(update_fields=["status", "cancelled_at", "cancellation_reason", "updated_at"])
+        record_vehicle_timeline_event(
+            vehicle=vehicle, category="booking", title="Booking auto-cancelled",
+            description=f"{other.customer.full_name}'s booking — vehicle sold to {buyer.full_name}.", actor=user,
+        )
 
     vehicle.status = InventoryVehicle.STATUS_SOLD
     vehicle.save(update_fields=["status", "updated_at"])

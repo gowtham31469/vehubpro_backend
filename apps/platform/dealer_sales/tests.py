@@ -28,9 +28,12 @@ from apps.platform.dealer_sales.services import (
     add_negotiation_round,
     cancel_booking,
     cancel_quotation,
+    cancel_reservation,
     cancel_sale,
     compute_commission,
+    compute_portfolio_profitability_insights,
     compute_profitability,
+    compute_sale_profit,
     confirm_sale,
     create_booking,
     create_delivery,
@@ -44,6 +47,7 @@ from apps.platform.dealer_sales.services import (
     record_sale_invoice_payment,
     record_vehicle_timeline_event,
     reject_quotation,
+    sales_report_queryset,
     send_quotation,
 )
 from apps.platform.portfolio.models import InventoryVehicle
@@ -141,6 +145,23 @@ class VehicleWorkExpenseTests(DealerSalesTestCase):
             amount=Decimal("9999.00"), expense_date=date(2026, 1, 1), status="cancelled",
         )
         self.assertEqual(get_total_work_expenses(self.owned_vehicle), Decimal("5000.00"))
+
+    def test_planned_expenses_excluded_from_total(self):
+        """Budgeted-but-not-yet-spent work shouldn't drag down profitability —
+        only in_progress + completed count as money actually incurred."""
+        VehicleWorkExpense.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, category="suspension",
+            amount=Decimal("30000.00"), expense_date=date(2026, 1, 1), status="planned",
+        )
+        VehicleWorkExpense.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, category="brake",
+            amount=Decimal("20000.00"), expense_date=date(2026, 1, 1), status="completed",
+        )
+        VehicleWorkExpense.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, category="engine",
+            amount=Decimal("15000.00"), expense_date=date(2026, 1, 1), status="in_progress",
+        )
+        self.assertEqual(get_total_work_expenses(self.owned_vehicle), Decimal("35000.00"))
 
 
 class AcquisitionTests(DealerSalesTestCase):
@@ -376,6 +397,77 @@ class OneActiveSalePerVehicleTests(DealerSalesPhase2TestCase):
         self.assertEqual(vehicle.status, InventoryVehicle.STATUS_AVAILABLE)
 
 
+class PipelineIntegrityTests(DealerSalesPhase2TestCase):
+    """Guards against the exact mess a dealer can otherwise create by hand:
+    duplicate reservations, a booking linked to someone else's reservation,
+    two active bookings at once, and a sale linked to someone else's booking."""
+
+    def test_duplicate_active_reservation_for_same_customer_rejected(self):
+        create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 1))
+        with self.assertRaises(DealerSalesError):
+            create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 2))
+
+    def test_second_reservation_for_different_customer_is_fine(self):
+        other = Customer.objects.create(tenant=self.tenant, full_name="Other Interested Buyer", phone="+919000000011")
+        create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 1))
+        # Multiple different customers eyeing the same car is a normal, legitimate case.
+        second = create_reservation(vehicle=self.owned_vehicle, customer=other, reservation_date=date(2026, 1, 2))
+        self.assertEqual(second.customer, other)
+
+    def test_reservation_for_cancelled_customer_reservation_allowed_again(self):
+        first = create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 1))
+        cancel_reservation(first, reason="Changed mind")
+        second = create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 5))
+        self.assertEqual(second.status, VehicleReservation.STATUS_ACTIVE)
+
+    def test_booking_rejects_reservation_from_a_different_customer(self):
+        other = Customer.objects.create(tenant=self.tenant, full_name="Mismatch Customer", phone="+919000000012")
+        reservation = create_reservation(vehicle=self.owned_vehicle, customer=self.buyer, reservation_date=date(2026, 1, 1))
+        with self.assertRaises(DealerSalesError):
+            create_booking(vehicle=self.owned_vehicle, customer=other, booking_date=date(2026, 1, 2), reservation=reservation)
+
+    def test_second_active_booking_rejected(self):
+        create_booking(vehicle=self.owned_vehicle, customer=self.buyer, booking_date=date(2026, 1, 1))
+        other = Customer.objects.create(tenant=self.tenant, full_name="Second Booker", phone="+919000000013")
+        with self.assertRaises(DealerSalesError):
+            create_booking(vehicle=self.owned_vehicle, customer=other, booking_date=date(2026, 1, 2))
+
+    def test_booking_allowed_after_first_one_cancelled(self):
+        first = create_booking(vehicle=self.owned_vehicle, customer=self.buyer, booking_date=date(2026, 1, 1))
+        cancel_booking(first, reason="Buyer backed out")
+        other = Customer.objects.create(tenant=self.tenant, full_name="Next Booker", phone="+919000000014")
+        second = create_booking(vehicle=self.owned_vehicle, customer=other, booking_date=date(2026, 1, 2))
+        self.assertEqual(second.status, VehicleBooking.STATUS_ACTIVE)
+
+    def test_sale_rejects_booking_from_a_different_buyer(self):
+        other = Customer.objects.create(tenant=self.tenant, full_name="Mismatch Buyer", phone="+919000000015")
+        booking = create_booking(vehicle=self.owned_vehicle, customer=self.buyer, booking_date=date(2026, 1, 1))
+        with self.assertRaises(DealerSalesError):
+            confirm_sale(
+                vehicle=self.owned_vehicle, buyer=other, sale_date=date(2026, 1, 2),
+                final_sale_price=Decimal("500000.00"), booking=booking,
+            )
+
+    def test_confirming_sale_auto_cancels_other_active_bookings(self):
+        # Simulates exactly the bad data this test guards against: a second
+        # (would-be invalid, but created before this vehicle had any
+        # booking) active booking for a different customer sitting around
+        # when the sale to the real buyer is confirmed.
+        other = Customer.objects.create(tenant=self.tenant, full_name="Loses The Car", phone="+919000000016")
+        booking = create_booking(vehicle=self.owned_vehicle, customer=self.buyer, booking_date=date(2026, 1, 1))
+        # Can't create a second active booking through the normal API anymore
+        # (guarded above) — simulate the pre-existing bad state directly.
+        stray_booking = VehicleBooking.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, customer=other, booking_date=date(2026, 1, 2),
+        )
+        confirm_sale(
+            vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5),
+            final_sale_price=Decimal("500000.00"), booking=booking,
+        )
+        stray_booking.refresh_from_db()
+        self.assertEqual(stray_booking.status, VehicleBooking.STATUS_CANCELLED)
+
+
 class SettlementTests(DealerSalesPhase2TestCase):
     """Reproduces the spec's exact Hyundai Creta consignment example for all
     three commission types: owner expected ₹5,00,000, final sale ₹5,40,000."""
@@ -571,3 +663,168 @@ class Phase2TenantIsolationTests(DealerSalesPhase2TestCase):
     def test_sale_scoped_to_tenant(self):
         sale = confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 1), final_sale_price=Decimal("500000.00"))
         self.assertEqual(VehicleSale.objects.filter(pk=sale.pk, tenant_id=self.other_tenant.id).count(), 0)
+
+
+class PortfolioProfitabilityInsightsTests(DealerSalesPhase2TestCase):
+    """compute_portfolio_profitability_insights() — the Inventory list page's
+    Insights section aggregate, built on top of the same per-vehicle math
+    as ProfitabilityTests/SettlementTests."""
+
+    def test_owned_sale_contributes_gross_profit_and_margin(self):
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, acquisition_date=date(2025, 12, 1),
+            purchase_price=Decimal("450000.00"),
+        )
+        VehicleWorkExpense.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, category="brake",
+            amount=Decimal("5000.00"), expense_date=date(2026, 1, 1),
+        )
+        confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("500000.00"))
+
+        insights = compute_portfolio_profitability_insights(self.tenant.id)
+        # landed cost = 450000 + 5000 = 455000; profit = 500000 - 455000 = 45000
+        self.assertEqual(insights["owned"]["count"], 1)
+        self.assertEqual(insights["owned"]["total_gross_profit"], Decimal("45000.00"))
+        self.assertEqual(insights["owned"]["average_gross_margin_percent"], Decimal("9.00"))
+        self.assertEqual(insights["combined_total_profit"], Decimal("45000.00"))
+        self.assertEqual(insights["sold_vehicle_count"], 1)
+
+    def test_consignment_sale_without_settlement_excluded(self):
+        owner = Customer.objects.create(tenant=self.tenant, full_name="Consignor", phone="+919000000030")
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.consignment_vehicle, acquisition_date=date(2025, 12, 1),
+            owner_customer=owner, owner_expected_price=Decimal("500000.00"),
+            commission_type="percentage", commission_value=Decimal("5.00"),
+        )
+        confirm_sale(vehicle=self.consignment_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("540000.00"))
+
+        insights = compute_portfolio_profitability_insights(self.tenant.id)
+        self.assertEqual(insights["consignment"]["count"], 0)
+        self.assertEqual(insights["sold_vehicle_count"], 0)
+
+    def test_consignment_sale_with_settlement_contributes_net_dealer_profit(self):
+        owner = Customer.objects.create(tenant=self.tenant, full_name="Consignor", phone="+919000000031")
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.consignment_vehicle, acquisition_date=date(2025, 12, 1),
+            owner_customer=owner, owner_expected_price=Decimal("500000.00"),
+            commission_type="percentage", commission_value=Decimal("5.00"),
+        )
+        sale = confirm_sale(vehicle=self.consignment_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("540000.00"))
+        create_settlement(sale)
+
+        insights = compute_portfolio_profitability_insights(self.tenant.id)
+        # commission = 540000 * 5% = 27000; net_dealer_profit = 27000 (no dealer expenses)
+        self.assertEqual(insights["consignment"]["count"], 1)
+        self.assertEqual(insights["consignment"]["total_net_dealer_profit"], Decimal("27000.00"))
+        self.assertEqual(insights["combined_total_profit"], Decimal("27000.00"))
+
+    def test_top_and_lowest_performers_ranked_by_profit(self):
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, acquisition_date=date(2025, 12, 1),
+            purchase_price=Decimal("450000.00"),
+        )
+        confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("500000.00"))
+
+        owner = Customer.objects.create(tenant=self.tenant, full_name="Consignor", phone="+919000000032")
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.consignment_vehicle, acquisition_date=date(2025, 12, 1),
+            owner_customer=owner, owner_expected_price=Decimal("500000.00"),
+            commission_type="percentage", commission_value=Decimal("5.00"),
+        )
+        sale2 = confirm_sale(vehicle=self.consignment_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 6), final_sale_price=Decimal("540000.00"))
+        create_settlement(sale2)
+
+        insights = compute_portfolio_profitability_insights(self.tenant.id)
+        # owned profit 50000 > consignment profit 27000
+        self.assertEqual(insights["top_performers"][0]["profit"], Decimal("50000.00"))
+        self.assertEqual(insights["lowest_performers"][0]["profit"], Decimal("27000.00"))
+
+    def test_tenant_isolation(self):
+        other_buyer = Customer.objects.create(tenant=self.other_tenant, full_name="Other Buyer", phone="+919000000033")
+        other_brand = VehicleBrand.objects.create(tenant=self.other_tenant, name="OtherBrand")
+        other_model = VehicleModel.objects.create(tenant=self.other_tenant, brand=other_brand, name="OtherModel")
+        body_type = self.owned_vehicle.vehicle_type
+        fuel_type = self.owned_vehicle.fuel_type
+        other_vehicle = InventoryVehicle.objects.create(
+            tenant=self.other_tenant, vehicle_type=body_type, brand=other_brand, vehicle_model=other_model,
+            year=2023, fuel_type=fuel_type, transmission=InventoryVehicle.TRANSMISSION_MANUAL,
+            inventory_type=InventoryVehicle.INVENTORY_TYPE_OWNED,
+        )
+        VehicleAcquisition.objects.create(
+            tenant=self.other_tenant, vehicle=other_vehicle, acquisition_date=date(2025, 12, 1),
+            purchase_price=Decimal("300000.00"),
+        )
+        confirm_sale(vehicle=other_vehicle, buyer=other_buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("350000.00"))
+
+        insights = compute_portfolio_profitability_insights(self.tenant.id)
+        self.assertEqual(insights["sold_vehicle_count"], 0)
+
+
+class SalesReportTests(DealerSalesPhase2TestCase):
+    """compute_sale_profit() and sales_report_queryset() — the Vehicle Sales
+    Report's building blocks, shared with the per-vehicle Profitability
+    panel and the Insights aggregate so all three always agree."""
+
+    def test_compute_sale_profit_owned(self):
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.owned_vehicle, acquisition_date=date(2025, 12, 1),
+            purchase_price=Decimal("450000.00"),
+        )
+        sale = confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("500000.00"))
+        data = compute_sale_profit(sale)
+        self.assertEqual(data["profit"], Decimal("50000.00"))
+        self.assertEqual(data["margin_percent"], Decimal("10.00"))
+
+    def test_compute_sale_profit_consignment_without_settlement_is_none(self):
+        owner = Customer.objects.create(tenant=self.tenant, full_name="Consignor", phone="+919000000040")
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.consignment_vehicle, acquisition_date=date(2025, 12, 1),
+            owner_customer=owner, owner_expected_price=Decimal("500000.00"),
+            commission_type="percentage", commission_value=Decimal("5.00"),
+        )
+        sale = confirm_sale(vehicle=self.consignment_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("540000.00"))
+        self.assertIsNone(compute_sale_profit(sale))
+
+    def test_sales_report_queryset_date_range_filter(self):
+        confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("500000.00"))
+        in_range = sales_report_queryset(self.tenant.id, date_from="2026-01-01", date_to="2026-01-31")
+        out_of_range = sales_report_queryset(self.tenant.id, date_from="2026-02-01", date_to="2026-02-28")
+        self.assertEqual(in_range.count(), 1)
+        self.assertEqual(out_of_range.count(), 0)
+
+    def test_sales_report_queryset_inventory_type_filter(self):
+        owner = Customer.objects.create(tenant=self.tenant, full_name="Consignor", phone="+919000000041")
+        VehicleAcquisition.objects.create(
+            tenant=self.tenant, vehicle=self.consignment_vehicle, acquisition_date=date(2025, 12, 1),
+            owner_customer=owner, owner_expected_price=Decimal("500000.00"),
+            commission_type="percentage", commission_value=Decimal("5.00"),
+        )
+        confirm_sale(vehicle=self.consignment_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("540000.00"))
+        confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 6), final_sale_price=Decimal("500000.00"))
+
+        owned_only = sales_report_queryset(self.tenant.id, inventory_type="owned")
+        consignment_only = sales_report_queryset(self.tenant.id, inventory_type="customer_consignment")
+        self.assertEqual(owned_only.count(), 1)
+        self.assertEqual(consignment_only.count(), 1)
+
+    def test_sales_report_queryset_includes_cancelled_unless_filtered(self):
+        sale = confirm_sale(vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("500000.00"))
+        cancel_sale(sale, reason="Buyer backed out")
+
+        all_rows = sales_report_queryset(self.tenant.id)
+        confirmed_only = sales_report_queryset(self.tenant.id, status="confirmed")
+        self.assertEqual(all_rows.count(), 1)
+        self.assertEqual(confirmed_only.count(), 0)
+
+    def test_sales_report_queryset_tenant_isolation(self):
+        other_buyer = Customer.objects.create(tenant=self.other_tenant, full_name="Other Buyer", phone="+919000000042")
+        other_brand = VehicleBrand.objects.create(tenant=self.other_tenant, name="OtherBrand2")
+        other_model = VehicleModel.objects.create(tenant=self.other_tenant, brand=other_brand, name="OtherModel2")
+        other_vehicle = InventoryVehicle.objects.create(
+            tenant=self.other_tenant, vehicle_type=self.owned_vehicle.vehicle_type, brand=other_brand,
+            vehicle_model=other_model, year=2023, fuel_type=self.owned_vehicle.fuel_type,
+            transmission=InventoryVehicle.TRANSMISSION_MANUAL, inventory_type=InventoryVehicle.INVENTORY_TYPE_OWNED,
+        )
+        confirm_sale(vehicle=other_vehicle, buyer=other_buyer, sale_date=date(2026, 1, 5), final_sale_price=Decimal("350000.00"))
+
+        self.assertEqual(sales_report_queryset(self.tenant.id).count(), 0)

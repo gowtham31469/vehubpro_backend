@@ -298,6 +298,53 @@ class VehicleSaleSerializer(serializers.ModelSerializer):
         ]
 
 
+class VehicleSalesReportRowSerializer(serializers.Serializer):
+    """Row shape for the Vehicle Sales Report's preview table — computes
+    profit/margin via compute_sale_profit() so the report always agrees with
+    the per-vehicle Profitability panel and the Insights aggregate. Read-only,
+    not backed by a single model field set."""
+
+    id = serializers.UUIDField()
+    vehicle_id = serializers.CharField(source="vehicle.id")
+    vehicle_label = serializers.SerializerMethodField()
+    registration_no = serializers.CharField(source="vehicle.registration_no")
+    inventory_type = serializers.CharField(source="vehicle.inventory_type")
+    buyer_name = serializers.CharField(source="buyer.full_name")
+    salesperson_name = serializers.SerializerMethodField()
+    sale_date = serializers.DateField()
+    final_sale_price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    status = serializers.CharField()
+    profit = serializers.SerializerMethodField()
+    margin_percent = serializers.SerializerMethodField()
+
+    def get_vehicle_label(self, obj):
+        v = obj.vehicle
+        return f"{v.year} {v.brand.name} {v.vehicle_model.name}"
+
+    def get_salesperson_name(self, obj):
+        if not obj.salesperson_id:
+            return ""
+        try:
+            return obj.salesperson.pii.get_full_name() or ""
+        except Exception:
+            return ""
+
+    def _profit_data(self, obj):
+        from apps.platform.dealer_sales.services import compute_sale_profit
+        if obj.status != VehicleSale.STATUS_CONFIRMED:
+            return None
+        return compute_sale_profit(obj)
+
+    def get_profit(self, obj):
+        data = self._profit_data(obj)
+        return data["profit"] if data else None
+
+    def get_margin_percent(self, obj):
+        data = self._profit_data(obj)
+        return data["margin_percent"] if data else None
+
+
 class VehicleSaleInvoicePaymentSerializer(serializers.ModelSerializer):
     payment_mode_display = serializers.CharField(source="get_payment_mode_display", read_only=True)
 

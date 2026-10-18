@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.platform.dealer_sales.views import (
+    PortfolioProfitabilityInsightsAPIView,
     VehicleAcquisitionDetailAPIView,
     VehicleBookingCancelAPIView,
     VehicleBookingListCreateAPIView,
@@ -25,6 +26,9 @@ from apps.platform.dealer_sales.views import (
     VehicleSaleQuotationListCreateAPIView,
     VehicleSaleQuotationRejectAPIView,
     VehicleSaleQuotationSendAPIView,
+    VehicleSalesReportExportAPIView,
+    VehicleSalesReportListAPIView,
+    VehicleSalesReportSummaryAPIView,
     VehicleSettlementDetailAPIView,
     VehicleSettlementMarkPaidAPIView,
     VehicleTimelineListAPIView,
@@ -33,6 +37,11 @@ from apps.platform.dealer_sales.views import (
 )
 
 urlpatterns = [
+    path("profitability-insights/", PortfolioProfitabilityInsightsAPIView.as_view(), name="portfolio-profitability-insights"),
+    path("reports/sales/", VehicleSalesReportListAPIView.as_view(), name="sales-report-list"),
+    path("reports/sales/summary/", VehicleSalesReportSummaryAPIView.as_view(), name="sales-report-summary"),
+    path("reports/sales/export/", VehicleSalesReportExportAPIView.as_view(), name="sales-report-export"),
+
     path("vehicles/<uuid:vehicle_id>/acquisition/", VehicleAcquisitionDetailAPIView.as_view(), name="vehicle-acquisition-detail"),
     path("vehicles/<uuid:vehicle_id>/ownership-history/", VehicleOwnershipRecordListCreateAPIView.as_view(), name="vehicle-ownership-history"),
     path("vehicles/<uuid:vehicle_id>/work-expenses/", VehicleWorkExpenseListCreateAPIView.as_view(), name="vehicle-work-expense-list-create"),

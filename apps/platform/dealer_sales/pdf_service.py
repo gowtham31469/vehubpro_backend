@@ -50,6 +50,57 @@ def _fmt_date(dt) -> str:
         return dt.strftime("%d %b %Y").lstrip("0")
 
 
+_ONES = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",
+    "Eighteen", "Nineteen",
+]
+_TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+
+def _two_digit_words(n: int) -> str:
+    if n < 20:
+        return _ONES[n]
+    return _TENS[n // 10] + (f" {_ONES[n % 10]}" if n % 10 else "")
+
+
+def _three_digit_words(n: int) -> str:
+    if n >= 100:
+        rest = f" {_two_digit_words(n % 100)}" if n % 100 else ""
+        return f"{_ONES[n // 100]} Hundred{rest}"
+    return _two_digit_words(n)
+
+
+def _int_to_words_indian(n: int) -> str:
+    """Indian numbering (crore/lakh/thousand), e.g. 2547000 -> 'Twenty-Five Lakh Forty-Seven Thousand'."""
+    if n == 0:
+        return "Zero"
+    parts = []
+    crore, n = divmod(n, 10_000_000)
+    lakh, n = divmod(n, 100_000)
+    thousand, n = divmod(n, 1_000)
+    hundred = n
+    if crore:
+        parts.append(f"{_three_digit_words(crore)} Crore")
+    if lakh:
+        parts.append(f"{_two_digit_words(lakh)} Lakh")
+    if thousand:
+        parts.append(f"{_two_digit_words(thousand)} Thousand")
+    if hundred:
+        parts.append(_three_digit_words(hundred))
+    return " ".join(parts)
+
+
+def _amount_in_words(value) -> str:
+    amount = Decimal(str(value or 0)).quantize(Decimal("0.01"))
+    rupees = int(amount)
+    paise = int((amount - rupees) * 100)
+    words = f"{_int_to_words_indian(rupees)} Rupees"
+    if paise:
+        words += f" and {_int_to_words_indian(paise)} Paise"
+    return f"{words} Only"
+
+
 def _logo_data_url(tenant_id) -> str | None:
     try:
         from apps.platform.tenants.models import TenantBranding
@@ -105,11 +156,15 @@ def _build_context(invoice) -> dict:
         pass
 
     tenant_name = "VeHubPro Dealer"
+    whatsapp_number = ""
     try:
-        from apps.platform.tenants.models import Tenant
+        from apps.platform.tenants.models import Tenant, TenantBranding
         tenant = Tenant.objects.filter(id=invoice.tenant_id).first()
         if tenant and tenant.name:
             tenant_name = tenant.name
+        branding = TenantBranding.objects.filter(tenant_id=invoice.tenant_id).first()
+        if branding and branding.whatsapp_number:
+            whatsapp_number = branding.whatsapp_number
     except Exception:
         pass
 
@@ -118,28 +173,56 @@ def _build_context(invoice) -> dict:
     balance_due = max(Decimal("0"), sale_amount - amount_paid)
 
     STATUS_MAP = {
-        "paid": ("#E8F5E9", "#2E7D32", "FULLY PAID"),
-        "partial": ("#fffbeb", "#d97706", f"PARTIALLY PAID — BALANCE {_fmt_money(balance_due)}"),
-        "unpaid": ("#fff1f2", "#e11d48", "UNPAID"),
+        "paid": ("#ccfbf1", "#0f766e", "PAID"),
+        "partial": ("#fffbeb", "#b45309", "PARTIALLY PAID"),
+        "unpaid": ("#fef2f2", "#be123c", "UNPAID"),
     }
     status_bg, status_fg, status_text = STATUS_MAP.get(
         invoice.payment_status, ("#f1f5f9", "#475569", invoice.payment_status.upper())
     )
 
+    sale = invoice.sale
+    discount_amount = Decimal(str(sale.discount_amount or 0)) if sale else Decimal("0")
+    listing_price = Decimal(str(sale.vehicle.listing_price or 0)) if sale and sale.vehicle and sale.vehicle.listing_price else None
+    sale_date = _fmt_date(sale.sale_date) if sale else "—"
+    salesperson_name = ""
+    if sale and sale.salesperson_id:
+        try:
+            salesperson_name = sale.salesperson.pii.get_full_name() or ""
+        except Exception:
+            salesperson_name = ""
+
+    payments_ctx = []
+    for p in invoice.payments.order_by("created_at"):
+        payments_ctx.append({
+            "date": _fmt_date(p.created_at),
+            "mode": p.get_payment_mode_display(),
+            "reference": p.payment_reference or "",
+            "amount": _fmt_money(p.amount),
+        })
+
     return {
         "logo_data_url": _logo_data_url(invoice.tenant_id),
         "tenant_name": tenant_name,
+        "tenant_initial": (tenant_name or "V").strip()[:1].upper(),
+        "whatsapp_number": whatsapp_number,
         "accent_color": accent_color,
         "invoice_number": invoice.invoice_number,
         "date_issued": _fmt_date(invoice.issued_at),
+        "sale_date": sale_date,
+        "salesperson_name": salesperson_name,
         "buyer_name": invoice.buyer_name_snapshot or "—",
         "buyer_phone": invoice.buyer_phone_snapshot or "",
         "buyer_email": invoice.buyer_email_snapshot or "",
         "vehicle_label": invoice.vehicle_label_snapshot or "—",
         "vehicle_reg": invoice.vehicle_registration_no_snapshot or "—",
+        "listing_price": _fmt_money(listing_price) if listing_price and listing_price != sale_amount else "",
+        "discount_amount": _fmt_money(discount_amount) if discount_amount > 0 else "",
         "sale_amount": _fmt_money(invoice.sale_amount),
         "amount_paid": _fmt_money(invoice.amount_paid),
         "balance_due": _fmt_money(balance_due),
+        "amount_in_words": _amount_in_words(invoice.sale_amount),
+        "payments": payments_ctx,
         "status_bg": status_bg,
         "status_fg": status_fg,
         "status_text": status_text,
