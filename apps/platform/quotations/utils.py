@@ -151,9 +151,21 @@ def refresh_quotation_totals(quotation: Quotation) -> None:
     Recompute header subtotal/taxable/tax/round_off/total from persisted line
     items + header discount_amount. Mirrors refresh_job_card_totals (no
     shop_fees concept on quotations — that's a job-card-specific post-tax fee).
+
+    Reads line items via a fresh ``QuotationLineItem.objects.filter(...)`` query
+    rather than ``quotation.line_items.all()`` deliberately — the caller's
+    ``quotation`` instance is frequently fetched upstream with
+    ``.prefetch_related("line_items")`` (e.g. the quotations list/detail
+    views), and `sync_quotation_line_items()` just above replaces the line
+    items via direct `QuotationLineItem.objects` delete+bulk_create calls,
+    which Django's prefetch cache has no way of knowing about. Reading through
+    `quotation.line_items.all()` on such an instance would silently return the
+    *stale, pre-update* cached list — recomputing (and persisting) the header
+    total from the wrong set of lines. A plain `.filter()` query always hits
+    the database fresh, regardless of any prefetch cache on the instance.
     """
     quotation.refresh_from_db(fields=["discount_amount"])
-    items = list(quotation.line_items.all())
+    items = list(QuotationLineItem.objects.filter(quotation_id=quotation.pk))
 
     subtotal = sum((li.line_total for li in items), Decimal("0"))
     discount = Decimal(str(quotation.discount_amount or 0))

@@ -7,6 +7,7 @@ from apps.platform.jobcards.views import (
     JobCardPdfAPIView,
     JobCardStatsAPIView,
 )
+from apps.platform.proforma_invoices.views import ProformaInvoiceGenerateAPIView
 
 urlpatterns = [
     path("", JobCardListCreateAPIView.as_view(), name="job-card-list-create"),
@@ -14,4 +15,9 @@ urlpatterns = [
     path("<uuid:pk>/", JobCardDetailAPIView.as_view(), name="job-card-detail"),
     path("<uuid:pk>/generate-pdf/", JobCardPdfAPIView.as_view(), name="job-card-generate-pdf"),
     path("<uuid:job_card_id>/generate-invoice/", GenerateInvoiceAPIView.as_view(), name="job-card-generate-invoice"),
+    path(
+        "<uuid:job_card_id>/generate-proforma-invoice/",
+        ProformaInvoiceGenerateAPIView.as_view(),
+        name="job-card-generate-proforma-invoice",
+    ),
 ]

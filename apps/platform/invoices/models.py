@@ -109,12 +109,18 @@ class Invoice(BaseModel):
     PAYMENT_MODE_CARD = "card"
     PAYMENT_MODE_BANK_TRANSFER = "bank_transfer"
     PAYMENT_MODE_CHEQUE = "cheque"
+    # System-generated only (never staff-selectable in the record-payment UI) —
+    # applied by ProformaInvoiceService.convert_to_invoice() when crediting a
+    # received advance payment into the freshly-generated invoice. Mirrors
+    # apps.platform.dealer_sales.VehicleSaleInvoicePayment.MODE_ADVANCE.
+    PAYMENT_MODE_ADVANCE = "advance"
     PAYMENT_MODE_CHOICES = [
         (PAYMENT_MODE_CASH, "Cash"),
         (PAYMENT_MODE_UPI, "UPI"),
         (PAYMENT_MODE_CARD, "Card"),
         (PAYMENT_MODE_BANK_TRANSFER, "Bank Transfer"),
         (PAYMENT_MODE_CHEQUE, "Cheque"),
+        (PAYMENT_MODE_ADVANCE, "Advance Payment"),
     ]
 
     # ── Core identity ──────────────────────────────────────────────────────────
@@ -130,6 +136,18 @@ class Invoice(BaseModel):
     job_card = models.ForeignKey(
         "jobcards.JobCard",
         on_delete=models.PROTECT,
+        related_name="invoices",
+    )
+    # Set only when this invoice was created via
+    # ProformaInvoiceService.convert_to_invoice() — traces the final tax
+    # invoice back to the preliminary estimate it came from. Null for every
+    # invoice generated directly from a job card (the existing, unaffected
+    # path), so this is a pure addition with no effect on existing invoices.
+    proforma_invoice = models.ForeignKey(
+        "proforma_invoices.ProformaInvoice",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="invoices",
     )
     invoice_number = models.CharField(max_length=32, db_index=True)

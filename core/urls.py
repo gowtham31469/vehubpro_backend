@@ -8,6 +8,8 @@ from django.template import TemplateDoesNotExist
 from django.urls import include, path, re_path
 from django.views.static import serve
 
+from apps.platform.proforma_invoices.urls import advance_payment_urlpatterns
+
 
 def serve_spa_or_health(request, *args, **kwargs):
     """
@@ -42,6 +44,8 @@ urlpatterns += [
     path("api/v1/job-cards/", include("apps.platform.jobcards.urls")),
     path("api/v1/invoices/", include("apps.platform.invoices.urls")),
     path("api/v1/quotations/", include("apps.platform.quotations.urls")),
+    path("api/v1/proforma-invoices/", include("apps.platform.proforma_invoices.urls")),
+    path("api/v1/advance-payments/", include(advance_payment_urlpatterns)),
     path("api/v1/portfolio/", include("apps.platform.portfolio.urls")),
     path("api/v1/dealer-sales/", include("apps.platform.dealer_sales.urls")),
     path("api/v1/dashboard/", include("apps.platform.dashboard.urls")),

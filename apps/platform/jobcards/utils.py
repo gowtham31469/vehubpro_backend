@@ -217,9 +217,21 @@ def refresh_job_card_totals(job_card: JobCard) -> None:
     fees. CGST/SGST are summed directly from each line's own stored amount (set by
     `sync_job_card_line_items`) rather than re-derived from a flat rate, so the header total
     reflects each line's actual catalog GST%.
+
+    Reads line items via a fresh ``JobCardLineItem.objects.filter(...)`` query
+    rather than ``job_card.line_items.all()`` deliberately — the caller's
+    ``job_card`` instance is frequently fetched upstream with
+    ``.prefetch_related("line_items")`` (e.g. JobCardDetailAPIView.get_object),
+    and `sync_job_card_line_items()` just above replaces the line items via
+    direct `JobCardLineItem.objects` delete+bulk_create calls, which Django's
+    prefetch cache has no way of knowing about. Reading through
+    `job_card.line_items.all()` on such an instance would silently return the
+    *stale, pre-update* cached list — recomputing (and persisting) the header
+    total from the wrong set of lines. A plain `.filter()` query always hits
+    the database fresh, regardless of any prefetch cache on the instance.
     """
     job_card.refresh_from_db(fields=["discount_amount", "shop_fees"])
-    items = list(job_card.line_items.all())
+    items = list(JobCardLineItem.objects.filter(job_card_id=job_card.pk))
 
     subtotal = sum((li.line_total for li in items), Decimal("0"))
     discount = Decimal(str(job_card.discount_amount or 0))
