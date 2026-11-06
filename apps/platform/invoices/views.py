@@ -130,6 +130,15 @@ class GenerateInvoiceAPIView(APIView):
                 status_code=status.HTTP_409_CONFLICT,
             )
 
+        # Credit any advances already collected against this job card via a
+        # proforma — this path bypasses a proforma's own "Convert to
+        # Invoice" (which does this automatically), so without this step
+        # that money would sit unapplied forever. Local import: proforma_invoices
+        # already depends on invoices.service, so importing it back here at
+        # module level would be circular.
+        from apps.platform.proforma_invoices.service import ProformaInvoiceService
+        invoice = ProformaInvoiceService.apply_outstanding_advances_to_invoice(invoice, issued_by=request.user)
+
         if notes:
             Invoice.objects.filter(pk=invoice.pk).update(notes=notes)
             invoice.notes = notes

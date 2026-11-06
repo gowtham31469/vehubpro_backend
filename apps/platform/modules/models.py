@@ -80,6 +80,10 @@ class Submodule(BaseModel, SoftArchiveModel):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Controls sidebar submenu order within the parent module (ascending). Ties broken by name.",
+    )
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -91,6 +95,7 @@ class Submodule(BaseModel, SoftArchiveModel):
     class Meta:
         db_table = "submodules"
         unique_together = ("module", "key")
+        ordering = ["display_order", "name"]
 
     def __str__(self):
         return f"{self.module.name} - {self.name}"

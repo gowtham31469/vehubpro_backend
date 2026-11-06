@@ -209,6 +209,33 @@ class JobCard(BaseModel):
         return f"{self.jobcard_number} ({self.status})"
 
 
+class JobCardStatusEvent(BaseModel):
+    """One row per status transition on a JobCard — the timeline shown on the
+    job card editor. Mirrors apps.platform.portfolio.models.VisitRequestStatusEvent.
+    The first event (from_status=None) is logged when the job card is created;
+    changed_by=None only for that pre-existing-data backfill case (status
+    history wasn't tracked before this model existed)."""
+
+    job_card = models.ForeignKey(JobCard, on_delete=models.CASCADE, related_name="status_events")
+    from_status = models.CharField(max_length=20, null=True, blank=True)
+    to_status = models.CharField(max_length=20)
+    note = models.TextField(null=True, blank=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="job_card_status_changes",
+    )
+
+    class Meta:
+        db_table = "jobcard_status_events"
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.job_card_id}: {self.from_status} -> {self.to_status}"
+
+
 # Not registered with django-auditlog: LogEntry inserts can leave changes_text NULL while the
 # DB column is NOT NULL, causing 500 on create. Re-enable after ALTER COLUMN changes_text SET DEFAULT '';
 # (or auditlog package / migration aligns with your DB).

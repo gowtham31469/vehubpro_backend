@@ -11,6 +11,7 @@ from django.test import TestCase
 
 from apps.platform.customers.models import Customer
 from apps.platform.invoices.models import Invoice
+from apps.platform.invoices.service import InvoiceService
 from apps.platform.jobcards.models import JobCard, JobCardLineItem, indian_fy_code
 from apps.platform.proforma_invoices.models import AdvancePayment, ProformaInvoice
 from apps.platform.proforma_invoices.service import (
@@ -255,13 +256,14 @@ class RevisionTests(ProformaInvoicesTestCase):
 
 
 class AdvancePaymentTests(ProformaInvoicesTestCase):
-    def _issued_proforma(self, suffix="ap-1"):
+    def _approved_proforma(self, suffix="ap-1"):
         job_card = self._make_job_card(suffix)
         proforma = ProformaInvoiceService.generate(job_card, created_by=None)
-        return ProformaInvoiceService.issue(proforma)
+        proforma = ProformaInvoiceService.issue(proforma)
+        return ProformaInvoiceService.approve(proforma)
 
     def test_record_manual_payment_is_received_immediately_with_receipt(self):
-        proforma = self._issued_proforma("ap-1")
+        proforma = self._approved_proforma("ap-1")
         payment = AdvancePaymentService.record(
             proforma, amount=Decimal("300.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None,
         )
@@ -269,7 +271,7 @@ class AdvancePaymentTests(ProformaInvoicesTestCase):
         self.assertTrue(payment.receipt_number.startswith("RCPT/"))
 
     def test_record_gateway_payment_starts_pending_no_receipt(self):
-        proforma = self._issued_proforma("ap-2")
+        proforma = self._approved_proforma("ap-2")
         payment = AdvancePaymentService.record(
             proforma, amount=Decimal("300.00"), payment_mode=AdvancePayment.MODE_ONLINE_GATEWAY, received_by=None,
         )
@@ -277,7 +279,7 @@ class AdvancePaymentTests(ProformaInvoicesTestCase):
         self.assertEqual(payment.receipt_number, "")
 
     def test_mark_received_allocates_receipt(self):
-        proforma = self._issued_proforma("ap-3")
+        proforma = self._approved_proforma("ap-3")
         payment = AdvancePaymentService.record(
             proforma, amount=Decimal("300.00"), payment_mode=AdvancePayment.MODE_ONLINE_GATEWAY, received_by=None,
         )
@@ -291,13 +293,47 @@ class AdvancePaymentTests(ProformaInvoicesTestCase):
         with self.assertRaises(InvalidProformaStatusForAdvance):
             AdvancePaymentService.record(proforma, amount=Decimal("100"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
 
+    def test_cannot_record_against_issued_proforma(self):
+        """Advances now require 'approved' (not just 'issued') — collecting
+        money against an estimate the customer hasn't actually confirmed yet
+        left advances stranded whenever staff generated the final invoice
+        directly from the job card instead of approving + converting."""
+        job_card = self._make_job_card("ap-4b")
+        proforma = ProformaInvoiceService.generate(job_card, created_by=None)
+        proforma = ProformaInvoiceService.issue(proforma)
+        with self.assertRaises(InvalidProformaStatusForAdvance):
+            AdvancePaymentService.record(proforma, amount=Decimal("100"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+
     def test_zero_amount_rejected(self):
-        proforma = self._issued_proforma("ap-5")
+        proforma = self._approved_proforma("ap-5")
         with self.assertRaises(InvalidAdvancePaymentAmount):
             AdvancePaymentService.record(proforma, amount=Decimal("0"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
 
+    def test_advance_exceeding_estimate_total_rejected(self):
+        """An advance must never exceed what's actually owed — recording more
+        than the estimate total is a user-input mistake, not a valid deposit."""
+        proforma = self._approved_proforma("ap-7")  # total_amount = 1180.00
+        with self.assertRaises(InvalidAdvancePaymentAmount):
+            AdvancePaymentService.record(proforma, amount=Decimal("1180.01"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+
+    def test_advance_equal_to_estimate_total_allowed(self):
+        proforma = self._approved_proforma("ap-8")  # total_amount = 1180.00
+        payment = AdvancePaymentService.record(proforma, amount=Decimal("1180.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+        self.assertEqual(payment.amount, Decimal("1180.00"))
+
+    def test_second_advance_capped_by_remaining_balance(self):
+        """The cap applies to the running total across all advances on this
+        job card, not just a single payment in isolation."""
+        proforma = self._approved_proforma("ap-9")  # total_amount = 1180.00
+        AdvancePaymentService.record(proforma, amount=Decimal("1000.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+        with self.assertRaises(InvalidAdvancePaymentAmount):
+            AdvancePaymentService.record(proforma, amount=Decimal("200.00"), payment_mode=AdvancePayment.MODE_UPI, received_by=None)
+        # Exactly the remaining balance still fits.
+        fits = AdvancePaymentService.record(proforma, amount=Decimal("180.00"), payment_mode=AdvancePayment.MODE_UPI, received_by=None)
+        self.assertEqual(fits.amount, Decimal("180.00"))
+
     def test_reverse_blocked_once_applied(self):
-        proforma = self._issued_proforma("ap-6")
+        proforma = self._approved_proforma("ap-6")
         payment = AdvancePaymentService.record(proforma, amount=Decimal("100"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
         AdvancePayment.objects.filter(pk=payment.pk).update(applied=True)
         payment.refresh_from_db()
@@ -353,6 +389,49 @@ class ConversionTests(ProformaInvoicesTestCase):
             self.assertTrue(payment.applied)
             self.assertEqual(payment.applied_to_invoice_id, invoice.pk)
 
+    def test_convert_credits_advances_recorded_on_an_earlier_revision(self):
+        """An advance recorded against v1 must still be visible AND still get
+        credited once the proforma is revised to v2 and v2 is the one that
+        gets converted — advances belong to the whole proforma family (same
+        proforma_number), not just whichever single version row they were
+        recorded against."""
+        proforma_v1, job_card = self._approved_proforma("conv-revision-1")
+        AdvancePaymentService.record(proforma_v1, amount=Decimal("300.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+
+        proforma_v2 = ProformaInvoiceService.create_revision(proforma_v1, revision_reason="scope changed", created_by=None)
+        proforma_v2 = ProformaInvoiceService.issue(proforma_v2)
+        proforma_v2 = ProformaInvoiceService.approve(proforma_v2)
+        AdvancePaymentService.record(proforma_v2, amount=Decimal("200.00"), payment_mode=AdvancePayment.MODE_UPI, received_by=None)
+
+        invoice = ProformaInvoiceService.convert_to_invoice(proforma_v2, issued_by=None)
+
+        self.assertEqual(invoice.amount_paid, Decimal("500.00"))
+        self.assertEqual(invoice.payments.count(), 2)
+
+    def test_advance_is_credited_when_invoice_generated_directly_from_job_card(self):
+        """Generating an invoice straight from the job card (bypassing any
+        proforma's own "Convert to Invoice") must still credit advances
+        already collected via a proforma for that job card — this is what
+        apps.platform.invoices.views.GenerateInvoiceAPIView calls after
+        InvoiceService.generate() succeeds."""
+        job_card = self._make_job_card("direct-1", status=JobCard.STATUS_WORKING)
+        proforma = ProformaInvoiceService.generate(job_card, created_by=None)
+        proforma = ProformaInvoiceService.issue(proforma)
+        proforma = ProformaInvoiceService.approve(proforma)
+        AdvancePaymentService.record(proforma, amount=Decimal("400.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
+
+        job_card.status = JobCard.STATUS_COMPLETED
+        job_card.save(update_fields=["status"])
+        invoice = InvoiceService.generate(job_card, issued_by=None, invoice_type=Invoice.INVOICE_TYPE_GST)
+        invoice = ProformaInvoiceService.apply_outstanding_advances_to_invoice(invoice, issued_by=None)
+
+        self.assertEqual(invoice.amount_paid, Decimal("400.00"))
+        self.assertEqual(invoice.payment_status, Invoice.PAYMENT_STATUS_PARTIAL)
+
+        advance = AdvancePayment.objects.get(proforma_invoice=proforma)
+        self.assertTrue(advance.applied)
+        self.assertEqual(advance.applied_to_invoice_id, invoice.pk)
+
     def test_pending_and_unapplied_advances_are_not_double_credited(self):
         """Only RECEIVED, unapplied advances are credited — pending/failed/
         reversed ones are skipped, and re-converting (blocked by
@@ -365,21 +444,36 @@ class ConversionTests(ProformaInvoicesTestCase):
         self.assertEqual(invoice.amount_paid, Decimal("300.00"))
 
     def test_excess_advance_left_unapplied_not_split(self):
-        """Advances summing above the invoice total: the overflowing one is
-        skipped entirely (not split, not discarded) — a smaller later advance
-        can still be applied if it fits."""
+        """AdvancePaymentService.record() now caps a new advance at the
+        proforma's remaining balance (see AdvanceValidationTests), so under
+        normal use committed advances can never exceed the total. The one
+        remaining legitimate way totals-committed > total_amount can still
+        happen: the estimate is revised DOWN *after* an advance was already
+        validly collected against the higher original total. Conversion must
+        still handle that gracefully — skip the now-too-large advance
+        entirely (not split, not discarded) rather than erroring."""
         proforma, job_card = self._approved_proforma("conv-6")
         big = AdvancePaymentService.record(proforma, amount=Decimal("1000.00"), payment_mode=AdvancePayment.MODE_CASH, received_by=None)
-        small = AdvancePaymentService.record(proforma, amount=Decimal("1180.00"), payment_mode=AdvancePayment.MODE_UPI, received_by=None)
 
-        invoice = ProformaInvoiceService.convert_to_invoice(proforma, issued_by=None)
-        # big (1000) applies first (fits under 1180), small (1180) would push
-        # total to 2180 > 1180, so it's skipped — left unapplied.
-        self.assertEqual(invoice.amount_paid, Decimal("1000.00"))
+        # Scope shrinks — the job card's total drops well below the advance
+        # already collected against the original, higher estimate.
+        JobCard.objects.filter(pk=job_card.pk).update(
+            subtotal=Decimal("500.00"), cgst_amount=Decimal("45.00"), sgst_amount=Decimal("45.00"), total_amount=Decimal("590.00"),
+        )
+        # Refetch fresh (not job_card.refresh_from_db()) so proforma.job_card's
+        # cached FK object — the same in-memory instance since generate() was
+        # handed `job_card` directly — doesn't mask the update from create_revision.
+        proforma = ProformaInvoice.objects.get(pk=proforma.pk)
+        revised = ProformaInvoiceService.create_revision(proforma, revision_reason="scope reduced", created_by=None)
+        revised = ProformaInvoiceService.issue(revised)
+        revised = ProformaInvoiceService.approve(revised)
+        self.assertEqual(revised.total_amount, Decimal("590.00"))
+
+        invoice = ProformaInvoiceService.convert_to_invoice(revised, issued_by=None)
+        # big (1000) would push amount_paid to 1000 > 590 — skipped, left unapplied.
+        self.assertEqual(invoice.amount_paid, Decimal("0.00"))
         big.refresh_from_db()
-        small.refresh_from_db()
-        self.assertTrue(big.applied)
-        self.assertFalse(small.applied)
+        self.assertFalse(big.applied)
 
     def test_convert_requires_completed_job_card(self):
         """The real invoice-generation gate (InvoiceService.generate's

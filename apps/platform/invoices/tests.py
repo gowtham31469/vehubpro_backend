@@ -10,7 +10,7 @@ from django.test import TestCase
 
 from apps.platform.customers.models import Customer
 from apps.platform.invoices.models import Invoice
-from apps.platform.invoices.service import InvalidJobCardStatus, InvoiceService
+from apps.platform.invoices.service import InvalidJobCardStatus, InvoiceAlreadyExists, InvoiceService
 from apps.platform.jobcards.models import JobCard, JobCardLineItem, indian_fy_code
 from apps.platform.tenants.models import Tenant
 from apps.platform.vehicles.models import FuelType, ServiceVehicle, VehicleBrand, VehicleModel, VehicleType
@@ -171,12 +171,28 @@ class InvoiceGenerationTests(TestCase):
 
     def test_job_card_locks_after_invoicing_regardless_of_type(self):
         """A job card can only be invoiced once (as either type) — re-invoicing
-        after the status has advanced to 'invoiced' is rejected by the existing
-        status gate, unaffected by which invoice_type was chosen."""
+        after the status has advanced to 'invoiced' is rejected, unaffected by
+        which invoice_type was chosen. Raises InvoiceAlreadyExists (checked
+        before the status gate) rather than InvalidJobCardStatus, since the
+        job card's own status no longer being 'completed' is a *symptom* of
+        the real reason (an active invoice already exists) — surfacing the
+        generic status message here would be misleading (e.g. to a proforma's
+        "Convert to Invoice" action hitting this same job card)."""
         job_card = self._make_completed_job_card("lock-1")
         InvoiceService.generate(job_card, issued_by=None, invoice_type=Invoice.INVOICE_TYPE_GST)
         job_card.refresh_from_db()
         self.assertEqual(job_card.status, JobCard.STATUS_INVOICED)
 
-        with self.assertRaises(InvalidJobCardStatus):
+        with self.assertRaises(InvoiceAlreadyExists):
             InvoiceService.generate(job_card, issued_by=None, invoice_type=Invoice.INVOICE_TYPE_NON_GST)
+
+    def test_generate_rejects_job_card_not_yet_completed(self):
+        """The status gate still fires on its own terms when no invoice has
+        ever been generated for this job card — distinct from the
+        InvoiceAlreadyExists case above."""
+        job_card = self._make_completed_job_card("not-completed-1")
+        job_card.status = JobCard.STATUS_WORKING
+        job_card.save(update_fields=["status"])
+
+        with self.assertRaises(InvalidJobCardStatus):
+            InvoiceService.generate(job_card, issued_by=None, invoice_type=Invoice.INVOICE_TYPE_GST)

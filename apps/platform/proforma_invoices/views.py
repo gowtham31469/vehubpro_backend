@@ -37,6 +37,7 @@ from apps.platform.jobcards.models import JobCard
 from apps.platform.jobcards.permissions import IsAuthenticatedJobCardAccess
 from apps.platform.proforma_invoices.models import AdvancePayment, ProformaInvoice
 from apps.platform.proforma_invoices.permissions import IsAuthenticatedProformaInvoiceAccess
+from apps.platform.proforma_invoices.utils import family_advance_payments_queryset
 from apps.platform.proforma_invoices.serializers import (
     AdvancePaymentSerializer,
     GenerateProformaInvoiceSerializer,
@@ -443,7 +444,7 @@ class AdvancePaymentListCreateAPIView(APIView):
         if error:
             return error
         proforma = _resolve_proforma(request, pk)
-        queryset = proforma.advance_payments.order_by("created_at")
+        queryset = family_advance_payments_queryset(proforma).order_by("created_at")
         return success_response(
             request, code="DATA_RETRIEVED", message="Advance payments retrieved successfully.",
             data=build_paginated_data(request, queryset, AdvancePaymentSerializer),

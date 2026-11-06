@@ -23,7 +23,14 @@ def _client():
         raise StorageConfigError("AWS_STORAGE_BUCKET_NAME is not configured.")
 
     region = getattr(settings, "AWS_REGION", "us-east-1")
-    kwargs: dict[str, Any] = {"region_name": region}
+    # Explicit regional endpoint_url (not just region_name): for a bucket outside
+    # us-east-1, boto3's default global "s3.amazonaws.com" host for presigned URLs
+    # 302-redirects to the regional host, and the signature (scoped to the
+    # presigned query string) doesn't survive that redirect — the regional host
+    # then returns 403 SignatureDoesNotMatch. Pinning endpoint_url sidesteps the
+    # redirect entirely, so upload/presign/delete all target the same regional
+    # host from the start.
+    kwargs: dict[str, Any] = {"region_name": region, "endpoint_url": f"https://s3.{region}.amazonaws.com"}
     key = getattr(settings, "AWS_ACCESS_KEY_ID", "") or ""
     secret = getattr(settings, "AWS_SECRET_ACCESS_KEY", "") or ""
     if key:

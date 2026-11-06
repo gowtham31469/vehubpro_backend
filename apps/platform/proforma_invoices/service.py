@@ -36,6 +36,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.common.utils.pdf_documents import compute_round_off
@@ -43,7 +44,12 @@ from apps.platform.invoices.models import Invoice
 from apps.platform.invoices.service import InvoiceService
 from apps.platform.jobcards.models import JobCard
 from apps.platform.proforma_invoices.models import AdvancePayment, ProformaInvoice, ProformaInvoiceLineItem
-from apps.platform.proforma_invoices.utils import allocate_next_advance_receipt_number, allocate_next_proforma_number
+from apps.platform.proforma_invoices.utils import (
+    allocate_next_advance_receipt_number,
+    allocate_next_proforma_number,
+    family_advance_payments_queryset,
+    job_card_advance_payments_queryset,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -88,7 +94,7 @@ class AdvancePaymentError(Exception):
 
 
 class InvalidProformaStatusForAdvance(AdvancePaymentError):
-    """Raised when recording an advance against a proforma that isn't issued/approved."""
+    """Raised when recording an advance against a proforma that isn't approved."""
 
 
 class InvalidAdvancePaymentAmount(AdvancePaymentError):
@@ -386,6 +392,58 @@ class ProformaInvoiceService:
         return new_version
 
     @staticmethod
+    def _apply_pending_advances(invoice: Invoice, pending_advances, *, issued_by) -> Invoice:
+        """
+        Shared credit loop used by both convert_to_invoice() and
+        apply_outstanding_advances_to_invoice(): applies each advance in
+        ``pending_advances`` (already filtered to received/unapplied, ordered
+        oldest-first) via the existing, UNMODIFIED
+        InvoiceService.record_payment(). The first advance that would push
+        amount_paid past total_amount is skipped (left unapplied — a visible,
+        tracked excess/credit balance), not split; later, smaller advances
+        are still tried in case they fit. No refund money-movement happens
+        automatically — see AdvancePaymentService.refund() for the manual,
+        tracked alternative.
+        """
+        for payment in pending_advances:
+            if invoice.amount_paid + payment.amount > invoice.total_amount:
+                continue
+            invoice = InvoiceService.record_payment(
+                invoice,
+                payment_mode=Invoice.PAYMENT_MODE_ADVANCE,
+                amount_paid=payment.amount,
+                payment_reference=f"Advance receipt {payment.receipt_number}".strip(),
+                recorded_by=issued_by,
+            )
+            AdvancePayment.objects.filter(pk=payment.pk).update(
+                applied=True, applied_to_invoice=invoice, updated_at=timezone.now()
+            )
+        return invoice
+
+    @staticmethod
+    @transaction.atomic
+    def apply_outstanding_advances_to_invoice(invoice: Invoice, *, issued_by) -> Invoice:
+        """
+        Credit any received-and-unapplied advance payments tied to
+        invoice.job_card into this already-generated invoice.
+
+        For use right after InvoiceService.generate() is called DIRECTLY
+        from a job card (apps.platform.invoices.views.GenerateInvoiceAPIView),
+        bypassing any proforma's own "Convert to Invoice" — without this,
+        money already collected against the job card via a proforma's
+        advance payments would sit unapplied forever, since nothing else
+        ever credits it once the job card's own invoice already exists.
+        Scoped by job_card (not one proforma's family) since this path has
+        no specific proforma in context — any unapplied advance for this job
+        card, from any proforma that was ever generated from it, is fair
+        game to credit here.
+        """
+        pending_advances = job_card_advance_payments_queryset(invoice.job_card).filter(
+            status=AdvancePayment.STATUS_RECEIVED, applied=False
+        ).order_by("created_at")
+        return ProformaInvoiceService._apply_pending_advances(invoice, pending_advances, issued_by=issued_by)
+
+    @staticmethod
     @transaction.atomic
     def convert_to_invoice(proforma: ProformaInvoice, *, issued_by) -> Invoice:
         """
@@ -423,24 +481,10 @@ class ProformaInvoiceService:
         job_card = proforma.job_card
         invoice = InvoiceService.generate(job_card, issued_by=issued_by, invoice_type=proforma.invoice_type)
 
-        pending_advances = proforma.advance_payments.filter(
+        pending_advances = family_advance_payments_queryset(proforma).filter(
             status=AdvancePayment.STATUS_RECEIVED, applied=False
         ).order_by("created_at")
-        for payment in pending_advances:
-            if invoice.amount_paid + payment.amount > invoice.total_amount:
-                # Would overflow the invoice total — left entirely unapplied
-                # (not split); try the next advance, a smaller one may still fit.
-                continue
-            invoice = InvoiceService.record_payment(
-                invoice,
-                payment_mode=Invoice.PAYMENT_MODE_ADVANCE,
-                amount_paid=payment.amount,
-                payment_reference=f"Advance receipt {payment.receipt_number}".strip(),
-                recorded_by=issued_by,
-            )
-            AdvancePayment.objects.filter(pk=payment.pk).update(
-                applied=True, applied_to_invoice=invoice, updated_at=timezone.now()
-            )
+        invoice = ProformaInvoiceService._apply_pending_advances(invoice, pending_advances, issued_by=issued_by)
 
         now = timezone.now()
         Invoice.objects.filter(pk=invoice.pk).update(proforma_invoice=proforma, updated_at=now)
@@ -474,23 +518,49 @@ class AdvancePaymentService:
         payment_reference: str = "", received_by, remarks: str = "",
     ) -> AdvancePayment:
         """
-        Record an advance payment against an issued/approved proforma. Manual
-        modes (cash/upi/card/bank_transfer/cheque/other) are recorded as
+        Record an advance payment against an approved proforma. Manual modes
+        (cash/upi/card/bank_transfer/cheque/other) are recorded as
         already-received, same as every other payment in this codebase
         (InvoicePayment has no 'pending' concept either — it's always an
         after-the-fact ledger entry). Only 'online_gateway' starts 'pending'
         — there is no gateway webhook integration anywhere in this codebase,
         so staff confirm it manually later via mark_received().
+
+        Requires 'approved' (not just 'issued') so an advance is never
+        collected against an estimate the customer hasn't actually confirmed
+        yet — collecting while merely 'issued' left advances stranded
+        whenever staff generated the final invoice directly from the job
+        card instead of approving + converting this proforma, since only the
+        conversion path credits advances into the invoice.
         """
         amount = Decimal(str(amount or 0)).quantize(Decimal("0.01"))
         if amount <= 0:
             raise InvalidAdvancePaymentAmount("Advance payment amount must be positive.")
 
         ProformaInvoiceService.apply_expiry_if_due(proforma_invoice)
-        if proforma_invoice.status not in (ProformaInvoice.STATUS_ISSUED, ProformaInvoice.STATUS_APPROVED):
+        if proforma_invoice.status != ProformaInvoice.STATUS_APPROVED:
             raise InvalidProformaStatusForAdvance(
                 f"Proforma '{proforma_invoice.proforma_number}' v{proforma_invoice.version} must be "
-                f"'issued' or 'approved' to record an advance payment (current: '{proforma_invoice.status}')."
+                f"'approved' to record an advance payment (current: '{proforma_invoice.status}')."
+            )
+
+        # An advance is money toward the final bill — it must never exceed
+        # it. Checked against the whole job card's running total (received +
+        # still-pending-gateway), not just this one proforma, so staff can't
+        # work around the cap by spreading advances across revisions. Without
+        # this, an over-the-top advance would also silently fail to be
+        # credited later (InvoiceService.record_payment is never allowed to
+        # push amount_paid past the invoice total, so it's skipped entirely
+        # rather than partially applied) — catching it here, with a clear
+        # reason, is far better than a deposit that quietly never shows up.
+        already_committed = job_card_advance_payments_queryset(proforma_invoice.job_card).filter(
+            status__in=[AdvancePayment.STATUS_RECEIVED, AdvancePayment.STATUS_PENDING]
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        remaining = (proforma_invoice.total_amount - already_committed).quantize(Decimal("0.01"))
+        if amount > remaining:
+            raise InvalidAdvancePaymentAmount(
+                f"Advance amount ₹{amount} exceeds the remaining balance of ₹{remaining} "
+                f"(estimate total ₹{proforma_invoice.total_amount}, already received/pending ₹{already_committed})."
             )
 
         is_manual = payment_mode in AdvancePayment.MANUAL_MODES

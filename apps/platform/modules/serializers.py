@@ -53,7 +53,7 @@ class ModuleDetailSerializer(ModuleSerializer):
         fields = ModuleSerializer.Meta.fields + ["submodules"]
 
     def get_submodules(self, obj):
-        qs = obj.submodules.filter(is_archived=False).order_by("name")
+        qs = obj.submodules.filter(is_archived=False).order_by("display_order", "name")
         return SubmoduleSerializer(qs, many=True).data
 
 
@@ -85,5 +85,5 @@ class NavModuleSerializer(serializers.ModelSerializer):
         allowed_submodule_ids = self.context.get("allowed_submodule_ids")
         if allowed_submodule_ids is not None:
             qs = qs.filter(id__in=allowed_submodule_ids)
-        qs = qs.order_by("id")
+        qs = qs.order_by("display_order", "name")
         return NavSubmoduleSerializer(qs, many=True).data

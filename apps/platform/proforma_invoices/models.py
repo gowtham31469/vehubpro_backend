@@ -8,8 +8,8 @@ independently-authored document the way apps.platform.quotations.Quotation
 is. It is explicitly NOT a GST tax invoice (see pdf_generator.py — the PDF's
 doc_type_label is literally "PROFORMA INVOICE — NOT A TAX INVOICE").
 
-AdvancePayment records money collected against an issued/approved proforma,
-before the real Invoice exists. At conversion (ProformaInvoiceService.
+AdvancePayment records money collected against an approved proforma, before
+the real Invoice exists. At conversion (ProformaInvoiceService.
 convert_to_invoice), received-and-unapplied advances are credited into the
 new Invoice via the existing, unmodified InvoiceService.record_payment() —
 see service.py for the exact mechanics.
@@ -247,7 +247,7 @@ class ProformaInvoiceLineItem(BaseModel):
 
 class AdvancePayment(BaseModel):
     """
-    Money collected against an issued/approved ProformaInvoice, before the
+    Money collected against an approved ProformaInvoice, before the
     real Invoice exists. Append-only ledger row, same shape/intent as
     InvoicePayment, plus a status lifecycle (pending/received/failed/
     reversed/refunded) that InvoicePayment doesn't need — every InvoicePayment

@@ -4,9 +4,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 
-from apps.platform.jobcards.models import JobCard
+from apps.platform.jobcards.models import JobCard, JobCardStatusEvent
 from apps.platform.jobcards.permissions import IsAuthenticatedJobCardAccess
-from apps.platform.jobcards.serializers import JobCardSerializer
+from apps.platform.jobcards.serializers import JobCardSerializer, JobCardStatusEventSerializer
 from apps.platform.jobcards.pdf_service import (
     JobCardPdfService,
     PdfGenerationError,
@@ -100,6 +100,12 @@ class JobCardListCreateAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        JobCardStatusEvent.objects.create(
+            job_card=serializer.instance,
+            from_status=None,
+            to_status=serializer.instance.status,
+            changed_by=request.user,
+        )
         return success_response(
             request,
             code="JOB_CARD_CREATED",
@@ -151,6 +157,7 @@ class JobCardDetailAPIView(APIView):
                 error="Job card is locked after invoicing.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        previous_status = instance.status
         payload = request.data.copy()
         payload.pop("tenant", None)
         payload.pop("jobcard_number", None)
@@ -159,6 +166,13 @@ class JobCardDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if serializer.instance.status != previous_status:
+            JobCardStatusEvent.objects.create(
+                job_card=serializer.instance,
+                from_status=previous_status,
+                to_status=serializer.instance.status,
+                changed_by=request.user,
+            )
         return success_response(
             request,
             code="JOB_CARD_UPDATED",
@@ -172,6 +186,7 @@ class JobCardDetailAPIView(APIView):
         if error:
             return error
         instance = self.get_object(request, pk)
+        previous_status = instance.status
 
         payload = request.data.copy()
         payload.pop("tenant", None)
@@ -197,6 +212,13 @@ class JobCardDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if serializer.instance.status != previous_status:
+            JobCardStatusEvent.objects.create(
+                job_card=serializer.instance,
+                from_status=previous_status,
+                to_status=serializer.instance.status,
+                changed_by=request.user,
+            )
         return success_response(
             request,
             code="JOB_CARD_UPDATED",
@@ -215,6 +237,26 @@ class JobCardDetailAPIView(APIView):
             code="JOB_CARD_DELETED",
             message="Job card deleted successfully.",
             data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class JobCardStatusEventListAPIView(APIView):
+    """GET /api/v1/job-cards/{id}/status-events/ — status-change timeline."""
+
+    permission_classes = [IsAuthenticatedJobCardAccess]
+
+    def get(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        job_card = get_object_or_404(JobCard, pk=pk, tenant_id=tenant_id)
+        events = job_card.status_events.select_related("changed_by__pii").all()
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Job card status history retrieved successfully.",
+            data=JobCardStatusEventSerializer(events, many=True).data,
             status_code=status.HTTP_200_OK,
         )
 

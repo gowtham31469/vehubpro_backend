@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.platform.jobcards.models import JobCard, JobCardLineItem
+from apps.platform.jobcards.models import JobCard, JobCardLineItem, JobCardStatusEvent
 from apps.platform.jobcards.utils import (
     allocate_next_jobcard_number,
     refresh_job_card_totals,
@@ -316,6 +316,22 @@ class JobCardSerializer(serializers.ModelSerializer):
         refresh_job_card_totals(instance)
         instance.refresh_from_db()
         return instance
+
+
+class JobCardStatusEventSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JobCardStatusEvent
+        fields = ["id", "from_status", "to_status", "note", "changed_by_name", "created_at"]
+
+    def get_changed_by_name(self, obj):
+        if obj.changed_by is None:
+            return "System"
+        try:
+            return obj.changed_by.pii.get_full_name() or "Staff"
+        except Exception:
+            return "Staff"
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

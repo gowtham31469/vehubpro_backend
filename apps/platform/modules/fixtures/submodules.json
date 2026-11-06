@@ -12,7 +12,8 @@
       "name": "Vehicle Work & Expenses",
       "description": "Vehicle Work & Expenses",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 40
     }
   },
   {
@@ -28,7 +29,8 @@
       "name": "Sales, Booking & Delivery",
       "description": "Sales, Booking & Delivery",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 50
     }
   },
   {
@@ -44,7 +46,8 @@
       "name": "Insights",
       "description": "Service insights",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -60,7 +63,8 @@
       "name": "Customer Management",
       "description": "Customers",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -76,7 +80,8 @@
       "name": "Service Vehicles",
       "description": "Vehicles",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 20
     }
   },
   {
@@ -92,7 +97,8 @@
       "name": "Services Master",
       "description": "Services catalog",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 30
     }
   },
   {
@@ -108,7 +114,8 @@
       "name": "Job Cards",
       "description": "Job cards",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 50
     }
   },
   {
@@ -124,7 +131,8 @@
       "name": "Invoices",
       "description": "Invoices",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 70
     }
   },
   {
@@ -140,7 +148,8 @@
       "name": "Quotations",
       "description": "Quotations",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 40
     }
   },
   {
@@ -156,7 +165,8 @@
       "name": "Reports",
       "description": "Reports",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 80
     }
   },
   {
@@ -172,7 +182,8 @@
       "name": "Insights",
       "description": "Portfolio insights",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -188,7 +199,8 @@
       "name": "Inventory Vehicles",
       "description": "Vehicles",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 20
     }
   },
   {
@@ -204,7 +216,8 @@
       "name": "Visit Requests",
       "description": "Visit Requests",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 30
     }
   },
   {
@@ -220,7 +233,8 @@
       "name": "Dashboard",
       "description": "Main dashboard with KPIs and activity feed",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -236,7 +250,8 @@
       "name": "User Management",
       "description": "Create and manage workshop staff accounts",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -252,7 +267,8 @@
       "name": "Configuration",
       "description": "Business name, timezone, currency, and language",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 10
     }
   },
   {
@@ -268,7 +284,8 @@
       "name": "Reports",
       "description": "Portfolio reports",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 60
     }
   },
   {
@@ -284,7 +301,8 @@
       "name": "Proforma Invoices",
       "description": "Proforma invoices and advance payments",
       "is_active": true,
-      "created_by": null
+      "created_by": null,
+      "display_order": 60
     }
   }
 ]

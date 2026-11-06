@@ -94,7 +94,7 @@ class SubmoduleListCreateAPIView(APIView):
 
     def get(self, request, module_pk):
         module = self.get_module(module_pk)
-        queryset = module.submodules.filter(is_archived=False).order_by("name")
+        queryset = module.submodules.filter(is_archived=False).order_by("display_order", "name")
         return success_response(
             request,
             code="DATA_RETRIEVED",

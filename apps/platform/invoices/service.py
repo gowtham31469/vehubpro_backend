@@ -30,7 +30,7 @@ from django.utils import timezone
 from apps.common.encryption.pii import encryptor
 from apps.common.utils.pdf_documents import compute_round_off
 from apps.platform.invoices.models import Invoice, InvoiceFySequence, InvoiceLineItem, InvoicePayment
-from apps.platform.jobcards.models import JobCard, indian_fy_code
+from apps.platform.jobcards.models import JobCard, JobCardStatusEvent, indian_fy_code
 
 
 class InvoiceError(Exception):
@@ -168,19 +168,25 @@ class InvoiceService:
         InvoiceAlreadyExists
             If an active Invoice already exists for this job card.
         """
+        # ── Idempotency guard (checked before the status gate) ─────────────────
+        # Only an *active* (non-cancelled) invoice blocks re-generation — a
+        # cancelled invoice stays on record but no longer occupies this slot.
+        # Checked first because a job card advances to 'invoiced' once this
+        # fires — if the status gate ran first, a second attempt to invoice an
+        # already-invoiced job card (e.g. via a proforma's "Convert to
+        # Invoice", when the real invoice was generated directly from the job
+        # card instead) would raise the generic "must be completed" error
+        # instead of the real, more actionable "invoice already exists" one.
+        if Invoice.objects.filter(job_card=job_card, is_cancelled=False).exists():
+            raise InvoiceAlreadyExists(
+                f"An active invoice already exists for job card '{job_card.jobcard_number}'."
+            )
+
         # ── Status gate ───────────────────────────────────────────────────────
         if job_card.status != JobCard.STATUS_COMPLETED:
             raise InvalidJobCardStatus(
                 f"Job card '{job_card.jobcard_number}' must be in 'completed' status "
                 f"before generating an invoice (current: '{job_card.status}')."
-            )
-
-        # ── Idempotency guard ─────────────────────────────────────────────────
-        # Only an *active* (non-cancelled) invoice blocks re-generation — a
-        # cancelled invoice stays on record but no longer occupies this slot.
-        if Invoice.objects.filter(job_card=job_card, is_cancelled=False).exists():
-            raise InvoiceAlreadyExists(
-                f"An active invoice already exists for job card '{job_card.jobcard_number}'."
             )
 
         # ── Prefetch related objects needed for snapshots ─────────────────────
@@ -310,9 +316,17 @@ class InvoiceService:
         InvoiceLineItem.objects.bulk_create(invoice_lines)
 
         # ── Advance job card status → invoiced ───────────────────────────────
+        previous_status = job_card.status
         JobCard.objects.filter(pk=job_card.pk).update(
             status=JobCard.STATUS_INVOICED,
             updated_at=timezone.now(),
+        )
+        JobCardStatusEvent.objects.create(
+            job_card=job_card,
+            from_status=previous_status,
+            to_status=JobCard.STATUS_INVOICED,
+            note=f"Invoice {invoice.invoice_number} generated.",
+            changed_by=issued_by,
         )
 
         return invoice
@@ -450,10 +464,18 @@ class InvoiceService:
                     old_pdf_key, invoice.pk,
                 )
 
-        JobCard.objects.filter(pk=invoice.job_card_id, status=JobCard.STATUS_INVOICED).update(
+        reverted = JobCard.objects.filter(pk=invoice.job_card_id, status=JobCard.STATUS_INVOICED).update(
             status=JobCard.STATUS_COMPLETED,
             updated_at=now,
         )
+        if reverted:
+            JobCardStatusEvent.objects.create(
+                job_card_id=invoice.job_card_id,
+                from_status=JobCard.STATUS_INVOICED,
+                to_status=JobCard.STATUS_COMPLETED,
+                note=f"Invoice '{invoice.invoice_number}' cancelled.",
+                changed_by=cancelled_by,
+            )
 
         invoice.refresh_from_db()
         return invoice

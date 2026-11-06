@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from apps.platform.invoices.models import Invoice
 from apps.platform.proforma_invoices.models import AdvancePayment, ProformaInvoice, ProformaInvoiceLineItem
+from apps.platform.proforma_invoices.utils import family_advance_payments_queryset
 
 
 class ProformaInvoiceLineItemSerializer(serializers.ModelSerializer):
@@ -60,6 +61,7 @@ class ProformaInvoiceListSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source="customer.full_name", read_only=True)
     vehicle_registration_no = serializers.CharField(source="vehicle.registration_no", read_only=True)
     jobcard_number = serializers.CharField(source="job_card.jobcard_number", read_only=True)
+    job_card_status = serializers.CharField(source="job_card.status", read_only=True)
     pdf_url = serializers.SerializerMethodField()
     advance_received_total = serializers.SerializerMethodField()
 
@@ -67,7 +69,7 @@ class ProformaInvoiceListSerializer(serializers.ModelSerializer):
         model = ProformaInvoice
         fields = [
             "id", "proforma_number", "version", "is_latest", "fy_code", "invoice_type", "status",
-            "job_card", "jobcard_number", "customer", "customer_name", "vehicle", "vehicle_registration_no",
+            "job_card", "jobcard_number", "job_card_status", "customer", "customer_name", "vehicle", "vehicle_registration_no",
             "issue_date", "valid_until", "subtotal", "discount_amount", "shop_fees",
             "cgst_amount", "sgst_amount", "igst_amount", "round_off_amount", "total_amount",
             "advance_received_total", "pdf_url", "invoice", "created_at", "updated_at",
@@ -85,14 +87,22 @@ class ProformaInvoiceListSerializer(serializers.ModelSerializer):
 
     def get_advance_received_total(self, obj) -> str:
         from django.db.models import Sum
-        total = obj.advance_payments.filter(status=AdvancePayment.STATUS_RECEIVED).aggregate(total=Sum("amount"))["total"]
+        # Family-wide (all revisions), not just this one version — see
+        # family_advance_payments_queryset's docstring for why.
+        total = family_advance_payments_queryset(obj).filter(
+            status=AdvancePayment.STATUS_RECEIVED
+        ).aggregate(total=Sum("amount"))["total"]
         return str(total or Decimal("0.00"))
 
 
 class ProformaInvoiceDetailSerializer(ProformaInvoiceListSerializer):
     line_items = ProformaInvoiceLineItemSerializer(many=True, read_only=True)
-    advance_payments = AdvancePaymentSerializer(many=True, read_only=True)
+    advance_payments = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
+
+    def get_advance_payments(self, obj):
+        qs = family_advance_payments_queryset(obj).order_by("created_at")
+        return AdvancePaymentSerializer(qs, many=True).data
 
     class Meta(ProformaInvoiceListSerializer.Meta):
         fields = ProformaInvoiceListSerializer.Meta.fields + [

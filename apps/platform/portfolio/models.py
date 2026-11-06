@@ -131,6 +131,10 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
     registration_no = models.CharField(max_length=20, blank=True, default="")
     tax_expiration_date = models.DateField(null=True, blank=True)
 
+    # Free-form prose description of the listing (condition, history, etc.) —
+    # distinct from reasons_to_buy's short structured marketing bullets.
+    description = models.TextField(blank=True, default="")
+
     photos = ArrayField(
         models.CharField(max_length=500),
         default=list,
