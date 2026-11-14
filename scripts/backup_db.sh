@@ -64,6 +64,7 @@ pg_dump \
   --format=plain \
   --no-owner \
   --no-privileges \
+  --column-inserts \
   "${DB_NAME}" > "${DUMP_FILE}"
 unset PGPASSWORD
 
