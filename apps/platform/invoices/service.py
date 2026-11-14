@@ -287,14 +287,17 @@ class InvoiceService:
 
         # ── Snapshot line items ───────────────────────────────────────────────
         line_items_data = list(
-            job_card.line_items.select_related("service_item")
+            job_card.line_items.select_related("service_item", "service_item__labour_category")
             .order_by("sort_order", "created_at")
         )
         invoice_lines = []
         for line in line_items_data:
             hsn_sac = ""
+            labour_category_name = ""
             if line.service_item_id and line.service_item:
                 hsn_sac = line.service_item.hsn_code or ""
+                if line.service_item.labour_category_id:
+                    labour_category_name = line.service_item.labour_category.name
             invoice_lines.append(
                 InvoiceLineItem(
                     invoice=invoice,
@@ -303,6 +306,7 @@ class InvoiceService:
                     description=line.description,
                     detail_text=line.detail_text or "",
                     hsn_sac_code=hsn_sac,
+                    labour_category_name=labour_category_name,
                     quantity=line.quantity,
                     unit_price=line.unit_price,
                     discount_amount=line.discount_amount,

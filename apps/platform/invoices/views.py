@@ -330,6 +330,27 @@ class InvoiceReportSummaryAPIView(APIView):
             part_amount=Sum("line_total", filter=Q(service_type=InvoiceLineItem.SERVICE_TYPE_PART)),
         )
 
+        # Further split the labour amount by labour category (Periodic
+        # Maintenance / General Repair / Painting / ... — whatever the tenant
+        # has, since LabourCategory is tenant-curated). labour_category_name
+        # is blank for labour lines whose service item had no category set
+        # (or predate this field) — those roll up under "Uncategorized"
+        # rather than being silently dropped.
+        labour_breakdown_rows = (
+            InvoiceLineItem.objects.filter(
+                invoice__in=queryset, service_type=InvoiceLineItem.SERVICE_TYPE_LABOUR,
+            )
+            .values("labour_category_name")
+            .annotate(amount=Sum("line_total"))
+        )
+        labour_breakdown = [
+            {
+                "name": row["labour_category_name"] or "Uncategorized",
+                "amount": str(row["amount"] or 0),
+            }
+            for row in labour_breakdown_rows
+        ]
+
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -341,6 +362,7 @@ class InvoiceReportSummaryAPIView(APIView):
                 "total_outstanding": str(aggregates["total_outstanding"] or 0),
                 "total_labour": str(line_item_stats["labour_amount"] or 0),
                 "total_parts": str(line_item_stats["part_amount"] or 0),
+                "labour_breakdown": labour_breakdown,
             },
             status_code=status.HTTP_200_OK,
         )

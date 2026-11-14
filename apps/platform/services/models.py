@@ -55,6 +55,36 @@ class ServiceCategory(BaseModel, SoftArchiveModel):
         return self.name
 
 
+class LabourCategory(BaseModel, SoftArchiveModel):
+    """Tenant-curated classification for labour-type service items (e.g. Periodic Maintenance, General Repair, Painting)."""
+
+    tenant = models.ForeignKey(
+        "tenants.Tenant", on_delete=models.CASCADE, related_name="labour_categories"
+    )
+    name = models.CharField(max_length=100)
+    sort_order = models.SmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "labour_categories"
+        ordering = ["sort_order", "name"]
+        verbose_name_plural = "labour categories"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "tenant",
+                condition=Q(is_archived=False),
+                name="uniq_labour_category_name_per_tenant_active",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "is_active"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class ServiceItem(BaseModel, SoftArchiveModel):
     """Individual billable service belonging to a category (e.g. Oil Change, Brake Pad Replacement)."""
 
@@ -87,6 +117,14 @@ class ServiceItem(BaseModel, SoftArchiveModel):
     name = models.CharField(max_length=150)
     description = models.TextField(null=True, blank=True)
     service_type = models.CharField(max_length=10, choices=SERVICE_TYPE_CHOICES, default=SERVICE_TYPE_LABOUR)
+    labour_category = models.ForeignKey(
+        "services.LabourCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="service_items",
+        help_text="Only meaningful for service_type='labour'; left blank for parts.",
+    )
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     hsn_code = models.CharField(max_length=8, null=True, blank=True)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)

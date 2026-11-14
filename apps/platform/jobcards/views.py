@@ -149,6 +149,14 @@ class JobCardDetailAPIView(APIView):
         if error:
             return error
         instance = self.get_object(request, pk)
+        if instance.status == JobCard.STATUS_DELIVERED:
+            return error_response(
+                request,
+                code="JOB_CARD_LOCKED",
+                message="This job card has been delivered and cannot be modified.",
+                error="Job card is locked after delivery.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         if instance.status == JobCard.STATUS_INVOICED:
             return error_response(
                 request,
@@ -199,6 +207,16 @@ class JobCardDetailAPIView(APIView):
         is_mark_delivered = (
             set(payload.keys()) <= {"status"} and payload.get("status") == JobCard.STATUS_DELIVERED
         )
+        # Delivered is terminal — there is no transition out of it, so unlike
+        # 'invoiced' it gets no carve-out at all.
+        if instance.status == JobCard.STATUS_DELIVERED:
+            return error_response(
+                request,
+                code="JOB_CARD_LOCKED",
+                message="This job card has been delivered and cannot be modified.",
+                error="Job card is locked after delivery.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         if instance.status == JobCard.STATUS_INVOICED and not is_mark_delivered:
             return error_response(
                 request,

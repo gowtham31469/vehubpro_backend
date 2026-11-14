@@ -354,6 +354,18 @@ class InvoiceLineItem(BaseModel):
     description = models.CharField(max_length=500)
     detail_text = models.CharField(max_length=500, blank=True, default="")
     hsn_sac_code = models.CharField(max_length=20, blank=True, default="")
+    labour_category_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text=(
+            "Snapshot of services.LabourCategory.name at generation time (only "
+            "meaningful for service_type='labour'; blank for parts or "
+            "uncategorized labour). Name, not a FK, for the same reason every "
+            "other field here is a snapshot — this line must stay correct even "
+            "if the tenant later renames/archives the category."
+        ),
+    )
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)

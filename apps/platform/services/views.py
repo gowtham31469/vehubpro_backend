@@ -9,13 +9,15 @@ from core.storage.resolve import delete_stored_media
 from core.storage.upload import upload_image_file
 from core.storage.validation import StorageValidationError
 
-from apps.platform.services.models import ServiceCategory, ServiceItem
+from apps.platform.services.models import LabourCategory, ServiceCategory, ServiceItem
 from apps.platform.services.permissions import IsAuthenticatedServiceAccess
 from apps.platform.services.serializers import (
+    LabourCategorySerializer,
     ServiceCategorySerializer,
     ServiceItemSerializer,
     _category_integrity_errors,
     _item_integrity_errors,
+    _labour_category_integrity_errors,
 )
 from core.utils.api_response import error_response, success_response
 from core.utils.pagination import build_paginated_data
@@ -194,6 +196,158 @@ class ServiceCategoryDetailAPIView(APIView):
             request,
             code="SERVICE_CATEGORY_DELETED",
             message="Service category archived successfully.",
+            data={},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Labour Category
+# ---------------------------------------------------------------------------
+
+
+class LabourCategoryListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticatedServiceAccess]
+
+    def get(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        queryset = LabourCategory.objects.filter(
+            tenant_id=tenant_id, is_archived=_is_archive_flag(request)
+        ).order_by("sort_order", "name")
+        is_active = _is_active_flag(request)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Labour categories retrieved successfully.",
+            data=build_paginated_data(request, queryset, LabourCategorySerializer),
+            status_code=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        payload = request.data.copy()
+        payload.pop("tenant", None)
+        serializer = LabourCategorySerializer(data=payload, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save(tenant_id=tenant_id)
+        except IntegrityError as exc:
+            return error_response(
+                request,
+                code="INTEGRITY_ERROR",
+                message="Could not create labour category.",
+                error=_labour_category_integrity_errors(exc),
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            code="LABOUR_CATEGORY_CREATED",
+            message="Labour category created successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class LabourCategoryDetailAPIView(APIView):
+    permission_classes = [IsAuthenticatedServiceAccess]
+
+    def get_object(self, request, pk):
+        tenant_id = getattr(request.user, "tenant_id", None)
+        return get_object_or_404(LabourCategory, pk=pk, tenant_id=tenant_id)
+
+    def get(self, request, pk):
+        _, error = _tenant_context(request)
+        if error:
+            return error
+        serializer = LabourCategorySerializer(self.get_object(request, pk))
+        return success_response(
+            request,
+            code="DATA_RETRIEVED",
+            message="Labour category retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def put(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        instance = self.get_object(request, pk)
+        payload = request.data.copy()
+        payload.pop("tenant", None)
+        serializer = LabourCategorySerializer(instance, data=payload, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save(tenant_id=tenant_id)
+        except IntegrityError as exc:
+            return error_response(
+                request,
+                code="INTEGRITY_ERROR",
+                message="Could not update labour category.",
+                error=_labour_category_integrity_errors(exc),
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            code="LABOUR_CATEGORY_UPDATED",
+            message="Labour category updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        instance = self.get_object(request, pk)
+        payload = request.data.copy()
+        payload.pop("tenant", None)
+        serializer = LabourCategorySerializer(
+            instance, data=payload, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save(tenant_id=tenant_id)
+        except IntegrityError as exc:
+            return error_response(
+                request,
+                code="INTEGRITY_ERROR",
+                message="Could not update labour category.",
+                error=_labour_category_integrity_errors(exc),
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            code="LABOUR_CATEGORY_UPDATED",
+            message="Labour category updated successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk):
+        tenant_id, error = _tenant_context(request)
+        if error:
+            return error
+        category = get_object_or_404(LabourCategory, pk=pk, tenant_id=tenant_id, is_archived=False)
+        # Labour category is a tag on ServiceItem, not a container like
+        # ServiceCategory — unlink items instead of archiving them too.
+        ServiceItem.objects.filter(labour_category_id=category.id, tenant_id=tenant_id).update(
+            labour_category=None, updated_at=timezone.now()
+        )
+        category.archive()
+        return success_response(
+            request,
+            code="LABOUR_CATEGORY_DELETED",
+            message="Labour category archived successfully.",
             data={},
             status_code=status.HTTP_200_OK,
         )

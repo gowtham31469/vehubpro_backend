@@ -3,7 +3,7 @@ from typing import Any
 from django.db import IntegrityError
 from rest_framework import serializers
 
-from apps.platform.services.models import ServiceCategory, ServiceItem
+from apps.platform.services.models import LabourCategory, ServiceCategory, ServiceItem
 
 
 def _category_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
@@ -11,6 +11,13 @@ def _category_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
     if "uniq_service_category_name_per_tenant" in msg:
         return {"name": "A service category with this name already exists for your tenant."}
     return {"non_field_errors": ["This category conflicts with an existing record for your tenant."]}
+
+
+def _labour_category_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
+    msg = str(exc.__cause__ or exc)
+    if "uniq_labour_category_name_per_tenant" in msg:
+        return {"name": "A labour category with this name already exists for your tenant."}
+    return {"non_field_errors": ["This labour category conflicts with an existing record for your tenant."]}
 
 
 def _item_integrity_errors(exc: IntegrityError) -> dict[str, Any]:
@@ -65,8 +72,32 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
         return name
 
 
+class LabourCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabourCategory
+        fields = [
+            "id",
+            "tenant",
+            "name",
+            "sort_order",
+            "is_active",
+            "is_archived",
+            "archived_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "tenant", "is_archived", "archived_at", "created_at", "updated_at"]
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Labour category name is required.")
+        return name
+
+
 class ServiceItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default=None)
+    labour_category_name = serializers.CharField(source="labour_category.name", read_only=True, default=None)
     image_url = serializers.SerializerMethodField()
     service_type = serializers.ChoiceField(choices=ServiceItem.SERVICE_TYPE_CHOICES)
     price_type = serializers.ChoiceField(choices=ServiceItem.PRICE_TYPE_CHOICES, required=False)
@@ -84,6 +115,8 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "service_type",
+            "labour_category",
+            "labour_category_name",
             "base_price",
             "hsn_code",
             "gst_percentage",
@@ -103,6 +136,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             "id",
             "tenant",
             "category_name",
+            "labour_category_name",
             "image",
             "image_url",
             "is_archived",
