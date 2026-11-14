@@ -37,7 +37,7 @@ class ModuleSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "id", "key", "name", "description",
-            "is_active", "is_service", "submodule_count",
+            "is_active", "is_service", "display_order", "submodule_count",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

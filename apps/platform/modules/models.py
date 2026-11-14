@@ -30,6 +30,10 @@ class Module(BaseModel, SoftArchiveModel):
     description = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_service = models.BooleanField(default=False)
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Controls sidebar order among top-level modules (ascending). Ties broken by name.",
+    )
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -40,6 +44,7 @@ class Module(BaseModel, SoftArchiveModel):
 
     class Meta:
         db_table = "modules"
+        ordering = ["display_order", "name"]
 
     def __str__(self):
         return f"{self.name} ({self.key})"

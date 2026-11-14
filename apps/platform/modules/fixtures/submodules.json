@@ -304,5 +304,56 @@
       "created_by": null,
       "display_order": 60
     }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000019",
+    "fields": {
+      "created_at": "2026-11-14T10:00:00Z",
+      "updated_at": "2026-11-14T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000007",
+      "key": "purchases_insights",
+      "name": "Insights",
+      "description": "Insights",
+      "is_active": true,
+      "created_by": null,
+      "display_order": 10
+    }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000020",
+    "fields": {
+      "created_at": "2026-11-14T10:00:00Z",
+      "updated_at": "2026-11-14T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000007",
+      "key": "vendor_management",
+      "name": "Vendor Management",
+      "description": "Vendor Management",
+      "is_active": true,
+      "created_by": null,
+      "display_order": 20
+    }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000021",
+    "fields": {
+      "created_at": "2026-11-14T10:00:00Z",
+      "updated_at": "2026-11-14T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000007",
+      "key": "purchase_invoice",
+      "name": "Purchase Invoice",
+      "description": "Purchase Invoice",
+      "is_active": true,
+      "created_by": null,
+      "display_order": 30
+    }
   }
 ]

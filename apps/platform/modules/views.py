@@ -24,7 +24,7 @@ class ModuleListCreateAPIView(APIView):
     permission_classes = [IsSuperAdminRole]
 
     def get(self, request):
-        queryset = Module.objects.filter(is_archived=False).order_by("name")
+        queryset = Module.objects.filter(is_archived=False).order_by("display_order", "name")
         return success_response(
             request,
             code="DATA_RETRIEVED",
@@ -244,7 +244,7 @@ class UserModuleNavAPIView(APIView):
             is_archived=False,
             is_active=True,
             submodules__id__in=allowed_submodule_ids,
-        ).prefetch_related("submodules").order_by("id").distinct()
+        ).prefetch_related("submodules").order_by("display_order", "name").distinct()
 
         return success_response(
             request,
@@ -297,7 +297,7 @@ class TenantModulePermissionsAPIView(APIView):
             "submodules",
             "submodules__permissions",
             "submodules__permissions__permission"
-        ).order_by("name")
+        ).order_by("display_order", "name")
 
         return success_response(
             request,
@@ -340,7 +340,7 @@ class TenantPortalModulePermissionsAPIView(APIView):
             "submodules",
             "submodules__permissions",
             "submodules__permissions__permission",
-        ).order_by("name")
+        ).order_by("display_order", "name")
 
         return success_response(
             request,

@@ -12,6 +12,7 @@
       "description": "Dashboard",
       "is_active": true,
       "is_service": false,
+      "display_order": 10,
       "created_by": null
     }
   },
@@ -28,6 +29,7 @@
       "description": "User Management",
       "is_active": true,
       "is_service": false,
+      "display_order": 20,
       "created_by": null
     }
   },
@@ -44,6 +46,7 @@
       "description": "Service module",
       "is_active": true,
       "is_service": true,
+      "display_order": 30,
       "created_by": null
     }
   },
@@ -60,6 +63,7 @@
       "description": "Portfolio module",
       "is_active": true,
       "is_service": false,
+      "display_order": 40,
       "created_by": null
     }
   },
@@ -76,6 +80,7 @@
       "description": "Configuration module",
       "is_active": true,
       "is_service": false,
+      "display_order": 50,
       "created_by": null
     }
   },
@@ -92,6 +97,24 @@
       "description": "Customers",
       "is_active": true,
       "is_service": false,
+      "display_order": 60,
+      "created_by": null
+    }
+  },
+  {
+    "model": "modules.module",
+    "pk": "d0000000-0000-0000-0000-000000000007",
+    "fields": {
+      "created_at": "2026-11-14T10:00:00Z",
+      "updated_at": "2026-11-14T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "key": "purchases",
+      "name": "Purchases",
+      "description": "Purchases",
+      "is_active": true,
+      "is_service": false,
+      "display_order": 70,
       "created_by": null
     }
   }
