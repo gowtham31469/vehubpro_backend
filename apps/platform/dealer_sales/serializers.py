@@ -288,7 +288,7 @@ class VehicleSaleSerializer(serializers.ModelSerializer):
         model = VehicleSale
         fields = [
             "id", "vehicle", "buyer", "buyer_name", "quotation", "booking", "sale_date",
-            "quoted_price", "final_sale_price", "discount_amount", "salesperson",
+            "quoted_price", "final_sale_price", "discount_amount", "expected_loan_amount", "salesperson",
             "status", "cancelled_at", "cancellation_reason", "notes", "created_by",
             "delivery", "settlement", "created_at", "updated_at",
         ]
@@ -359,13 +359,20 @@ class VehicleSaleInvoicePaymentSerializer(serializers.ModelSerializer):
 
 class VehicleSaleInvoiceSerializer(serializers.ModelSerializer):
     payments = VehicleSaleInvoicePaymentSerializer(many=True, read_only=True)
+    # Read straight through the sale (not snapshotted onto the invoice) —
+    # this is a planning figure, not an immutable financial fact, so there's
+    # no "historical accuracy" reason to freeze a copy of it at invoice-
+    # generation time the way sale_amount itself is frozen.
+    expected_loan_amount = serializers.DecimalField(
+        source="sale.expected_loan_amount", max_digits=12, decimal_places=2, read_only=True, allow_null=True,
+    )
 
     class Meta:
         model = VehicleSaleInvoice
         fields = [
             "id", "sale", "invoice_number", "buyer_name_snapshot", "buyer_phone_snapshot",
             "buyer_email_snapshot", "vehicle_label_snapshot", "vehicle_registration_no_snapshot",
-            "sale_amount", "payment_status", "amount_paid", "notes", "created_by",
+            "sale_amount", "payment_status", "amount_paid", "expected_loan_amount", "notes", "created_by",
             "payments", "issued_at", "created_at",
         ]
         read_only_fields = fields
@@ -432,6 +439,9 @@ class SaleCreateInputSerializer(serializers.Serializer):
     quoted_price = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     final_sale_price = serializers.DecimalField(max_digits=12, decimal_places=2)
     discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, default=0)
+    expected_loan_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True, default=None,
+    )
     salesperson = serializers.PrimaryKeyRelatedField(
         queryset=get_user_model().objects.all(), required=False, allow_null=True,
     )

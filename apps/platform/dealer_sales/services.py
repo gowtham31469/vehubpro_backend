@@ -509,10 +509,12 @@ def cancel_booking(booking: VehicleBooking, *, reason="", user=None) -> VehicleB
 
 def confirm_sale(
     *, vehicle, buyer, sale_date, final_sale_price, quotation=None, booking=None,
-    quoted_price=None, discount_amount=0, salesperson=None, notes="", user=None,
+    quoted_price=None, discount_amount=0, expected_loan_amount=None, salesperson=None, notes="", user=None,
 ) -> VehicleSale:
     if _get_confirmed_sale(vehicle) is not None:
         raise DealerSalesError("This vehicle already has a confirmed sale.")
+    if expected_loan_amount is not None and expected_loan_amount > final_sale_price:
+        raise DealerSalesError("Expected loan amount cannot exceed the final sale price.")
     if booking is not None and booking.customer_id != buyer.id:
         raise DealerSalesError(
             f"This booking belongs to {booking.customer.full_name}, not {buyer.full_name} — "
@@ -522,7 +524,8 @@ def confirm_sale(
     sale = VehicleSale.objects.create(
         tenant_id=vehicle.tenant_id, vehicle=vehicle, buyer=buyer, quotation=quotation, booking=booking,
         sale_date=sale_date, quoted_price=quoted_price, final_sale_price=final_sale_price,
-        discount_amount=discount_amount, salesperson=salesperson, notes=notes, created_by=user,
+        discount_amount=discount_amount, expected_loan_amount=expected_loan_amount,
+        salesperson=salesperson, notes=notes, created_by=user,
     )
 
     if booking is not None:

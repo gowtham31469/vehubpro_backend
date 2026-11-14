@@ -545,6 +545,14 @@ class VehicleSale(BaseModel, SoftArchiveModel):
     quoted_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     final_sale_price = models.DecimalField(max_digits=12, decimal_places=2)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Planning figure only, entered at confirm-sale time — "how much of this
+    # sale will the buyer cover via a bank/NBFC loan" — so staff know upfront
+    # how much to expect directly from the buyer (cash/UPI/etc.) vs. from a
+    # lender later. Not a payment: recording the actual disbursement once it
+    # arrives still goes through VehicleSaleInvoicePayment (MODE_LOAN), same
+    # as any other payment. Null/0 means no financing — paying in full
+    # themselves.
+    expected_loan_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     salesperson = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
@@ -695,6 +703,7 @@ class VehicleSaleInvoicePayment(BaseModel):
     MODE_CARD = "card"
     MODE_BANK_TRANSFER = "bank_transfer"
     MODE_CHEQUE = "cheque"
+    MODE_LOAN = "loan"
     MODE_ADVANCE = "advance"
 
     PAYMENT_MODE_CHOICES = [
@@ -703,6 +712,13 @@ class VehicleSaleInvoicePayment(BaseModel):
         (MODE_CARD, "Card"),
         (MODE_BANK_TRANSFER, "Bank Transfer"),
         (MODE_CHEQUE, "Cheque"),
+        # Distinct from MODE_BANK_TRANSFER: a lender (bank/NBFC) disburses this
+        # straight to the dealer on the buyer's behalf, not money the buyer
+        # moved themselves — keeping it separate matters for reconciliation
+        # (a customer's own transfer vs. a loan payout look identical
+        # otherwise). Lender name/loan reference goes in payment_reference,
+        # same free-text field every other mode already uses for that.
+        (MODE_LOAN, "Loan / Financing"),
         # System-generated row, not staff-entered — the reservation deposit
         # or booking amount already collected before the invoice existed,
         # auto-credited by generate_sale_invoice() rather than typed in.

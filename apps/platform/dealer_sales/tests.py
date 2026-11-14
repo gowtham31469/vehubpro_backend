@@ -377,6 +377,29 @@ class OneActiveSalePerVehicleTests(DealerSalesPhase2TestCase):
         with self.assertRaises(DealerSalesError):
             confirm_sale(vehicle=vehicle, buyer=self.buyer, sale_date=date(2026, 1, 2), final_sale_price=Decimal("510000.00"))
 
+
+class ExpectedLoanAmountTests(DealerSalesPhase2TestCase):
+    def test_expected_loan_amount_stored(self):
+        sale = confirm_sale(
+            vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 1),
+            final_sale_price=Decimal("500000.00"), expected_loan_amount=Decimal("350000.00"),
+        )
+        self.assertEqual(sale.expected_loan_amount, Decimal("350000.00"))
+
+    def test_expected_loan_amount_exceeding_sale_price_rejected(self):
+        with self.assertRaises(DealerSalesError):
+            confirm_sale(
+                vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 1),
+                final_sale_price=Decimal("500000.00"), expected_loan_amount=Decimal("500000.01"),
+            )
+
+    def test_expected_loan_amount_optional(self):
+        sale = confirm_sale(
+            vehicle=self.owned_vehicle, buyer=self.buyer, sale_date=date(2026, 1, 1),
+            final_sale_price=Decimal("500000.00"),
+        )
+        self.assertIsNone(sale.expected_loan_amount)
+
     def test_cancelled_sale_does_not_block_new_sale(self):
         vehicle = self.owned_vehicle
         sale = confirm_sale(vehicle=vehicle, buyer=self.buyer, sale_date=date(2026, 1, 1), final_sale_price=Decimal("500000.00"))
