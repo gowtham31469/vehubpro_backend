@@ -170,6 +170,18 @@ class ServiceItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("GST percentage cannot be negative.")
         return value
 
+    def validate(self, attrs):
+        service_type = attrs.get("service_type", getattr(self.instance, "service_type", None))
+        if "labour_category" in attrs:
+            labour_category = attrs["labour_category"]
+        else:
+            labour_category = getattr(self.instance, "labour_category", None) if self.instance else None
+        if labour_category and service_type != ServiceItem.SERVICE_TYPE_LABOUR:
+            raise serializers.ValidationError(
+                {"labour_category": "Labour category can only be set for labour-type items."}
+            )
+        return attrs
+
 
 class PublicServiceCategorySerializer(serializers.ModelSerializer):
     """Read-only, no-auth serializer for the public Services homepage/catalog."""

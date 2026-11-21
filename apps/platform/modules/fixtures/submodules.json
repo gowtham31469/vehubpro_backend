@@ -355,5 +355,22 @@
       "created_by": null,
       "display_order": 30
     }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000022",
+    "fields": {
+      "created_at": "2026-11-18T10:00:00Z",
+      "updated_at": "2026-11-18T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000004",
+      "key": "leads",
+      "name": "Leads",
+      "description": "Leads",
+      "is_active": true,
+      "created_by": null,
+      "display_order": 25
+    }
   }
 ]

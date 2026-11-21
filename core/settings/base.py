@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.platform.proforma_invoices",
     "apps.platform.portfolio",
     "apps.platform.dealer_sales",
+    "apps.platform.leads",
     "apps.platform.dashboard",
     "apps.platform.notifications",
     "apps.consent",
@@ -175,6 +176,12 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "EXCEPTION_HANDLER": "core.utils.exception_handler.custom_exception_handler",
+    # Scoped to the anonymous public lead-enquiry endpoints only (see
+    # apps.platform.leads.public_views) — no other endpoint sets a
+    # throttle_scope, so this rate never applies anywhere else.
+    "DEFAULT_THROTTLE_RATES": {
+        "public_lead_enquiry": "5/hour",
+    },
 }
 
 SIMPLE_JWT = {
