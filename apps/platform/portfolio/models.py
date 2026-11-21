@@ -112,6 +112,7 @@ class InventoryVehicle(BaseModel, SoftArchiveModel):
     transmission = models.CharField(max_length=20, choices=TRANSMISSION_CHOICES, default=TRANSMISSION_AUTOMATIC)
     color = models.CharField(max_length=20, choices=COLOR_CHOICES, blank=True, default="")
     mileage_km = models.PositiveIntegerField(default=0, help_text="Odometer reading in kilometers.")
+    no_of_owners = models.PositiveSmallIntegerField(default=1, help_text="Number of previous owners, including the current one.")
     key_features = models.ManyToManyField(
         InventoryFeature,
         blank=True,

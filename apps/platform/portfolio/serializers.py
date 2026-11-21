@@ -82,6 +82,7 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
             "transmission",
             "color",
             "mileage_km",
+            "no_of_owners",
             "key_features",
             "key_features_detail",
             "listing_price",
@@ -174,6 +175,11 @@ class InventoryVehicleSerializer(serializers.ModelSerializer):
     def validate_fuel_type(self, value):
         if value is not None and not value.is_active:
             raise serializers.ValidationError("Selected fuel type is inactive.")
+        return value
+
+    def validate_no_of_owners(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError("Number of owners must be at least 1.")
         return value
 
     def validate_key_features(self, value):
@@ -350,6 +356,7 @@ class PublicInventoryVehicleSerializer(serializers.ModelSerializer):
             "transmission",
             "color",
             "mileage_km",
+            "no_of_owners",
             "key_features_detail",
             "listing_price",
             "original_price",
