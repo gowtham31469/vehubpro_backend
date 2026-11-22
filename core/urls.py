@@ -44,6 +44,8 @@ urlpatterns += [
     path("api/v1/services/", include("apps.platform.services.urls")),
     path("api/v1/job-cards/", include("apps.platform.jobcards.urls")),
     path("api/v1/invoices/", include("apps.platform.invoices.urls")),
+    path("api/v1/credit-notes/", include("apps.platform.credit_notes.urls")),
+    path("api/v1/vendors/", include("apps.platform.vendors.urls")),
     path("api/v1/quotations/", include("apps.platform.quotations.urls")),
     path("api/v1/proforma-invoices/", include("apps.platform.proforma_invoices.urls")),
     path("api/v1/advance-payments/", include(advance_payment_urlpatterns)),

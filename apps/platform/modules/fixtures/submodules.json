@@ -372,5 +372,22 @@
       "created_by": null,
       "display_order": 25
     }
+  },
+  {
+    "model": "modules.submodule",
+    "pk": "e0000000-0000-0000-0000-000000000023",
+    "fields": {
+      "created_at": "2026-11-22T10:00:00Z",
+      "updated_at": "2026-11-22T10:00:00Z",
+      "is_archived": false,
+      "archived_at": null,
+      "module": "d0000000-0000-0000-0000-000000000003",
+      "key": "credit_note",
+      "name": "Credit Note",
+      "description": "Credit Note",
+      "is_active": true,
+      "created_by": null,
+      "display_order": 75
+    }
   }
 ]

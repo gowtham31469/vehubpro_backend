@@ -131,6 +131,12 @@
       <span></span>
     </div>
     {% endif %}
+    {% if reference_display %}
+    <div class="flex items-center justify-between gap-4 mb-2 text-xs font-bold">
+      <span>{{ reference_display }}</span>
+      <span></span>
+    </div>
+    {% endif %}
 
     {% if is_cancelled %}
     <div class="avoid-break mb-4 border-2 border-rose-600 bg-rose-50 px-3 py-2 text-rose-700">

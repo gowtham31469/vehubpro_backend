@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.platform.credit_notes.views import GenerateCreditNoteAPIView
 from apps.platform.invoices.views import (
     InvoiceCancelAPIView,
     InvoiceDetailAPIView,
@@ -20,4 +21,5 @@ urlpatterns = [
     path("<uuid:pk>/record-payment/", RecordPaymentAPIView.as_view(), name="invoice-record-payment"),
     path("<uuid:pk>/generate-pdf/", InvoicePdfAPIView.as_view(), name="invoice-generate-pdf"),
     path("<uuid:pk>/cancel/", InvoiceCancelAPIView.as_view(), name="invoice-cancel"),
+    path("<uuid:invoice_id>/credit-notes/", GenerateCreditNoteAPIView.as_view(), name="invoice-generate-credit-note"),
 ]
